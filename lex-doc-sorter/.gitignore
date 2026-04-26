@@ -1,0 +1,12 @@
+node_modules
+dist
+.claude
+.next
+.env
+.env.local
+.mcp.json
+roadmap.md
+*.log
+.DS_Store
+Thumbs.db
+uploads/
