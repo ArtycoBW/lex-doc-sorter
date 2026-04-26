@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import {
   ArrowRight,
   CheckCircle2,
@@ -12,16 +13,63 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/context/auth-context"
+import { api, type SortingJob } from "@/lib/api"
 
-const stats = [
-  { label: "Всего заданий", value: "0", icon: FolderOpen },
-  { label: "Обработано файлов", value: "0", icon: CheckCircle2 },
-  { label: "Создано PDF", value: "0", icon: FileStack },
-]
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const name = user?.name?.trim() || "пользователь"
+  const [jobs, setJobs] = useState<SortingJob[]>([])
+  const [totalJobs, setTotalJobs] = useState(0)
+
+  useEffect(() => {
+    let mounted = true
+
+    api.getJobs({ page: 1, limit: 5 })
+      .then((result) => {
+        if (!mounted) return
+        setJobs(result.items)
+        setTotalJobs(result.total)
+      })
+      .catch(() => {
+        if (!mounted) return
+        setJobs([])
+        setTotalJobs(0)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const stats = useMemo(() => {
+    const processedFiles = jobs.reduce(
+      (sum, job) => sum + job.processedFiles,
+      0,
+    )
+    const outputPdfs = jobs.reduce(
+      (sum, job) => sum + job.files.filter((file) => file.outputPdfPath).length,
+      0,
+    )
+
+    return [
+      { label: "Всего заданий", value: String(totalJobs), icon: FolderOpen },
+      {
+        label: "Обработано файлов",
+        value: String(processedFiles),
+        icon: CheckCircle2,
+      },
+      { label: "Создано PDF", value: String(outputPdfs), icon: FileStack },
+    ]
+  }, [jobs, totalJobs])
 
   return (
     <div className="space-y-8">
@@ -93,14 +141,38 @@ export default function DashboardPage() {
               </Link>
             </Button>
           </div>
-          <div className="flex min-h-56 flex-col items-center justify-center px-5 py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
-              <FolderOpen className="h-5 w-5" />
+          {jobs.length === 0 ? (
+            <div className="flex min-h-56 flex-col items-center justify-center px-5 py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <FolderOpen className="h-5 w-5" />
+              </div>
+              <p className="mt-4 text-sm font-medium">
+                Нет заданий. Создайте первое!
+              </p>
             </div>
-            <p className="mt-4 text-sm font-medium">
-              Нет заданий. Создайте первое!
-            </p>
-          </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {jobs.map((job) => (
+                <Link
+                  key={job.id}
+                  href={`/jobs/${job.id}`}
+                  className="block px-5 py-4 transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        Задание {job.id.slice(0, 8)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(job.createdAt)} · файлов: {job.totalFiles}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </section>
     </div>

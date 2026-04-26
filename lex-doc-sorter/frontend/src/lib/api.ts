@@ -126,6 +126,66 @@ export type CurrentUser = {
   access: UserAccessSummary;
 };
 
+export type JobStatus =
+  | 'PENDING'
+  | 'UPLOADING'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export type FileStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SKIPPED';
+
+export type ProcessedFile = {
+  id: string;
+  jobId: string;
+  originalName: string;
+  originalPath: string;
+  processedPath: string | null;
+  processedName: string | null;
+  ocrText: string | null;
+  docType: string | null;
+  docDate: string | null;
+  docNumber: string | null;
+  docParties: string[];
+  docSummary: string | null;
+  outputPdfPath: string | null;
+  pageCount: number;
+  sizeBytes: number;
+  orderIndex: number;
+  groupIndex: number | null;
+  status: FileStatus;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SortingJob = {
+  id: string;
+  userId: string;
+  status: JobStatus;
+  totalFiles: number;
+  processedFiles: number;
+  outputZipPath: string | null;
+  registryPath: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  files: ProcessedFile[];
+};
+
+export type JobsPageResponse = {
+  items: SortingJob[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export type BillingSummary = {
   mode: 'TRIAL' | 'FREE' | 'PAID' | 'UNLIMITED' | 'SMART_ASSISTANT_ONLY';
   tariffName: string | null;
@@ -840,6 +900,111 @@ export const api = {
     request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email, code, newPassword }),
+    }),
+
+  createJob: () =>
+    request<SortingJob>('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  getJobs: (params?: { page?: number; limit?: number }) => {
+    const search = new URLSearchParams();
+
+    if (params?.page) {
+      search.set('page', String(params.page));
+    }
+
+    if (params?.limit) {
+      search.set('limit', String(params.limit));
+    }
+
+    const query = search.toString();
+    return request<JobsPageResponse>(query ? `/jobs?${query}` : '/jobs');
+  },
+
+  getJob: (jobId: string) => request<SortingJob>(`/jobs/${jobId}`),
+
+  deleteJob: (jobId: string) =>
+    request<{ message: string }>(`/jobs/${jobId}`, { method: 'DELETE' }),
+
+  updateJobFileName: (
+    jobId: string,
+    fileId: string,
+    processedName: string,
+  ) =>
+    request<ProcessedFile>(`/jobs/${jobId}/files/${fileId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ processedName }),
+    }),
+
+  uploadJobFiles: (
+    jobId: string,
+    files: File[],
+    onProgress?: (progress: number) => void,
+  ) =>
+    new Promise<SortingJob>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+
+      for (const file of files) {
+        formData.append('files', file);
+      }
+
+      xhr.open('POST', `${getApiUrl()}/jobs/${jobId}/upload`);
+
+      const token = getAccessToken();
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress?.(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        const payload = xhr.responseText
+          ? (() => {
+              try {
+                return JSON.parse(xhr.responseText);
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress?.(100);
+          resolve(payload as SortingJob);
+          return;
+        }
+
+        reject(
+          new Error(
+            normalizeErrorMessage(
+              payload?.message,
+              xhr.status,
+              `/jobs/${jobId}/upload`,
+            ),
+          ),
+        );
+      };
+
+      xhr.onerror = () => {
+        reject(
+          new Error(
+            normalizeErrorMessage(
+              'Failed to fetch',
+              undefined,
+              `/jobs/${jobId}/upload`,
+            ),
+          ),
+        );
+      };
+
+      xhr.send(formData);
     }),
 
   uploadDocument: async (file: File, options?: { signal?: AbortSignal }) => {

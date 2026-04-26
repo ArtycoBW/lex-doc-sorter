@@ -1,0 +1,112 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { mkdirSync } from 'fs';
+import * as path from 'path';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UpdateFileNameDto } from './dto/update-file-name.dto';
+import { JobsService } from './jobs.service';
+
+const MAX_FILES = 500;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+]);
+const TEMP_UPLOAD_DIR = path.resolve(
+  process.cwd(),
+  process.env.STORAGE_PATH || './uploads',
+  '.tmp',
+);
+
+mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
+
+@Controller('jobs')
+@UseGuards(JwtAuthGuard)
+export class JobsController {
+  constructor(private readonly jobsService: JobsService) {}
+
+  @Post()
+  createJob(@Req() req: any) {
+    return this.jobsService.createJob(req.user.sub);
+  }
+
+  @Post(':id/upload')
+  @UseInterceptors(
+    FilesInterceptor('files', MAX_FILES, {
+      dest: TEMP_UPLOAD_DIR,
+      limits: {
+        fileSize: MAX_FILE_SIZE,
+        files: MAX_FILES,
+      },
+      fileFilter: (_req, file, callback) => {
+        if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+          callback(
+            new BadRequestException(
+              'Поддерживаются только JPG, JPEG, PNG и PDF',
+            ) as unknown as Error,
+            false,
+          );
+          return;
+        }
+
+        callback(null, true);
+      },
+    }),
+  )
+  uploadFiles(
+    @Req() req: any,
+    @Param('id') jobId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.jobsService.uploadFiles(req.user.sub, jobId, files);
+  }
+
+  @Get()
+  listJobs(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.jobsService.listJobs(req.user.sub, page, limit);
+  }
+
+  @Get(':id')
+  getJob(@Req() req: any, @Param('id') jobId: string) {
+    return this.jobsService.getJob(req.user.sub, jobId);
+  }
+
+  @Patch(':id/files/:fileId')
+  updateFileName(
+    @Req() req: any,
+    @Param('id') jobId: string,
+    @Param('fileId') fileId: string,
+    @Body() dto: UpdateFileNameDto,
+  ) {
+    return this.jobsService.updateFileName(
+      req.user.sub,
+      jobId,
+      fileId,
+      dto.processedName,
+    );
+  }
+
+  @Delete(':id')
+  deleteJob(@Req() req: any, @Param('id') jobId: string) {
+    return this.jobsService.deleteJob(req.user.sub, jobId);
+  }
+}
