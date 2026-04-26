@@ -13,21 +13,88 @@ enum UserRole {
   ADMIN
 }
 
+enum JobStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FileStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   passwordHash String?
   name         String?
   company      String?
-  role         UserRole  @default(DEMO)
-  isVerified   Boolean   @default(false)
-  isBanned     Boolean   @default(false)
-  tokenBalance Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  role         UserRole     @default(DEMO)
+  isVerified   Boolean      @default(false)
+  isBanned     Boolean      @default(false)
+  tokenBalance Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   sessions     Session[]
+  sortingJobs  SortingJob[]
 
   @@map("users")
+}
+
+model SortingJob {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         JobStatus       @default(PENDING)
+  totalFiles     Int             @default(0)
+  processedFiles Int             @default(0)
+  outputZipPath  String?
+  registryPath   String?
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  files          ProcessedFile[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sorting_jobs")
+}
+
+model ProcessedFile {
+  id            String     @id @default(cuid())
+  jobId         String
+  job           SortingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  originalName  String
+  originalPath  String
+  processedPath String?
+  processedName String?
+  ocrText       String?    @db.Text
+  docType       String?
+  docDate       String?
+  docNumber     String?
+  docParties    String[]   @default([])
+  docSummary    String?
+  outputPdfPath String?
+  pageCount     Int        @default(1)
+  sizeBytes     Int        @default(0)
+  orderIndex    Int        @default(0)
+  groupIndex    Int?
+  status        FileStatus @default(PENDING)
+  errorMessage  String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([jobId])
+  @@index([status])
+  @@index([orderIndex])
+  @@map("processed_files")
 }
 
 model VerificationCode {
