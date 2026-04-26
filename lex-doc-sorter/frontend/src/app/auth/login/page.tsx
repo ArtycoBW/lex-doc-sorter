@@ -304,7 +304,7 @@ export default function LoginPage() {
         <div className="space-y-2 text-center text-sm text-muted-foreground fade-in-up-delay-2">
           <p>
             <Link
-              href="/auth/reset-password"
+              href="/auth/forgot-password"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
               {TEXT.forgotPassword}

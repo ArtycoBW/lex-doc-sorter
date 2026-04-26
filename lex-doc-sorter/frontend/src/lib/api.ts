@@ -576,10 +576,12 @@ function isPublicAuthPath(path?: string) {
     path === '/auth/send-registration-code' ||
     path === '/auth/send-reset-code' ||
     path === '/auth/verify-code' ||
+    path === '/auth/verify-email' ||
     path === '/auth/register' ||
     path === '/auth/login' ||
     path === '/auth/login-verify' ||
-    path === '/auth/reset-password'
+    path === '/auth/reset-password' ||
+    path === '/auth/forgot-password'
   );
 }
 
@@ -798,6 +800,12 @@ export const api = {
       body: JSON.stringify({ email, code }),
     }),
 
+  verifyEmail: (email: string, code: string) =>
+    request<{ verified: boolean; isNewUser: boolean }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
+
   register: (data: { email: string; password: string; name: string; company?: string }) =>
     request<{ user: CurrentUser; accessToken: string; refreshToken: string }>('/auth/register', {
       method: 'POST',
@@ -824,6 +832,12 @@ export const api = {
 
   resetPassword: (email: string, code: string, newPassword: string) =>
     request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    }),
+
+  forgotPassword: (email: string, code: string, newPassword: string) =>
+    request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email, code, newPassword }),
     }),

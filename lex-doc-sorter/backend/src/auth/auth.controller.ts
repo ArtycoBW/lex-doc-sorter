@@ -27,6 +27,11 @@ export class AuthController {
     return this.auth.verifyCode(dto);
   }
 
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyCodeDto) {
+    return this.auth.verifyCode(dto);
+  }
+
   @Post('register')
   completeRegistration(@Req() req: any, @Body() dto: CompleteRegistrationDto) {
     return this.auth.completeRegistration(dto, this.getClientSessionMeta(req));
@@ -44,6 +49,11 @@ export class AuthController {
 
   @Post('reset-password')
   resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
   }
 
