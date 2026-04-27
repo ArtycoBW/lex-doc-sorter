@@ -4,12 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JobStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { mkdir, rename, rm } from 'fs/promises';
+import { readFile, rm } from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 
 const MAX_PAGE_SIZE = 50;
 const ALLOWED_MIME_TYPES = new Set([
@@ -26,7 +26,7 @@ type JobWithFiles = Prisma.SortingJobGetPayload<{
 export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
+    private readonly storage: StorageService,
   ) {}
 
   async createJob(userId: string) {
@@ -114,28 +114,34 @@ export class JobsService {
       data: { status: JobStatus.UPLOADING, errorMessage: null },
     });
 
-    const storageRoot = this.getStorageRoot();
-    const originalsDir = path.join(storageRoot, userId, job.id, 'originals');
-    await mkdir(originalsDir, { recursive: true });
-
     const existingCount = job.files.length;
     const createdFileData: Prisma.ProcessedFileCreateManyInput[] = [];
-    const movedPaths: string[] = [];
+    const uploadedKeys: string[] = [];
 
     try {
       for (const [index, file] of files.entries()) {
         const orderIndex = existingCount + index;
         const originalName = this.normalizeOriginalName(file.originalname);
         const storedName = this.buildStoredFileName(orderIndex, originalName);
-        const targetPath = path.join(originalsDir, storedName);
+        const storageKey = this.buildOriginalStorageKey(
+          userId,
+          job.id,
+          storedName,
+        );
 
-        await rename(file.path, targetPath);
-        movedPaths.push(targetPath);
+        const fileBuffer = await readFile(file.path);
+        const originalPath = await this.storage.upload(
+          storageKey,
+          fileBuffer,
+          file.mimetype,
+        );
+        uploadedKeys.push(originalPath);
+        await rm(file.path, { force: true });
 
         createdFileData.push({
           jobId: job.id,
           originalName,
-          originalPath: this.toStoredPath(targetPath),
+          originalPath,
           sizeBytes: file.size,
           pageCount: 1,
           orderIndex,
@@ -158,7 +164,7 @@ export class JobsService {
     } catch (error) {
       await Promise.allSettled([
         this.removeUploadedTempFiles(files),
-        ...movedPaths.map((filePath) => rm(filePath, { force: true })),
+        ...uploadedKeys.map((key) => this.storage.delete(key)),
       ]);
 
       await this.prisma.sortingJob.update({
@@ -204,9 +210,7 @@ export class JobsService {
     await this.ensureJobOwner(userId, jobId);
 
     await this.prisma.sortingJob.delete({ where: { id: jobId } });
-
-    const jobDir = path.join(this.getStorageRoot(), userId, jobId);
-    await rm(jobDir, { recursive: true, force: true });
+    await this.storage.deleteJobFiles(userId, jobId);
 
     return { message: 'Задание удалено' };
   }
@@ -230,13 +234,6 @@ export class JobsService {
     const parsed = Number.parseInt(value ?? '', 10);
 
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-  }
-
-  private getStorageRoot() {
-    return path.resolve(
-      process.cwd(),
-      this.config.get<string>('STORAGE_PATH') || './uploads',
-    );
   }
 
   private normalizeOriginalName(name: string) {
@@ -272,8 +269,12 @@ export class JobsService {
     return `${number}_${randomUUID()}_${nameWithoutExtension}${extension}`;
   }
 
-  private toStoredPath(filePath: string) {
-    return path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+  private buildOriginalStorageKey(
+    userId: string,
+    jobId: string,
+    storedName: string,
+  ) {
+    return `originals/${userId}/${jobId}/${storedName}`;
   }
 
   private async removeUploadedTempFiles(files: Express.Multer.File[]) {
