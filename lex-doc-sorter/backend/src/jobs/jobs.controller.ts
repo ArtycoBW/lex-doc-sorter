@@ -9,14 +9,17 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { mkdirSync } from 'fs';
 import * as path from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BasicProcessingService } from './basic-processing.service';
 import { UpdateFileNameDto } from './dto/update-file-name.dto';
 import { JobsService } from './jobs.service';
 
@@ -38,7 +41,10 @@ mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
 @Controller('jobs')
 @UseGuards(JwtAuthGuard)
 export class JobsController {
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly basicProcessingService: BasicProcessingService,
+  ) {}
 
   @Post()
   createJob(@Req() req: any) {
@@ -76,6 +82,11 @@ export class JobsController {
     return this.jobsService.uploadFiles(req.user.sub, jobId, files);
   }
 
+  @Post(':id/start')
+  startBasicProcessing(@Req() req: any, @Param('id') jobId: string) {
+    return this.basicProcessingService.processJob(req.user.sub, jobId);
+  }
+
   @Get()
   listJobs(
     @Req() req: any,
@@ -83,6 +94,19 @@ export class JobsController {
     @Query('limit') limit?: string,
   ) {
     return this.jobsService.listJobs(req.user.sub, page, limit);
+  }
+
+  @Get(':id/download')
+  downloadJobArchive(
+    @Req() req: any,
+    @Param('id') jobId: string,
+    @Res() response: Response,
+  ) {
+    return this.basicProcessingService.streamJobArchive(
+      req.user.sub,
+      jobId,
+      response,
+    );
   }
 
   @Get(':id')

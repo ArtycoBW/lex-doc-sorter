@@ -925,6 +925,39 @@ export const api = {
 
   getJob: (jobId: string) => request<SortingJob>(`/jobs/${jobId}`),
 
+  startJobProcessing: (jobId: string) =>
+    request<SortingJob>(`/jobs/${jobId}/start`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  downloadJobArchive: async (jobId: string) => {
+    try {
+      const res = await authorizedFetch(`/jobs/${jobId}/download`);
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Ошибка выгрузки архива' }));
+        throw new Error(normalizeErrorMessage(error.message, res.status, `/jobs/${jobId}/download`));
+      }
+
+      const contentDisposition = res.headers.get('Content-Disposition') ?? '';
+      const fileName =
+        contentDisposition.match(/filename="([^"]+)"/)?.[1] ??
+        `lexdoc_${jobId.slice(0, 8)}.zip`;
+
+      return {
+        blob: await res.blob(),
+        fileName,
+      };
+    } catch (error: any) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : normalizeErrorMessage(error?.message, undefined, `/jobs/${jobId}/download`),
+      );
+    }
+  },
+
   deleteJob: (jobId: string) =>
     request<{ message: string }>(`/jobs/${jobId}`, { method: 'DELETE' }),
 
