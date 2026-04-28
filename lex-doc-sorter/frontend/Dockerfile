@@ -27,6 +27,9 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
+RUN test -f .next/standalone/server.js \
+    || (echo "Next standalone server was not generated. Check next.config.js output: 'standalone'." >&2; exit 1)
+
 RUN mkdir -p .next/standalone/.next \
     && cp -R .next/static .next/standalone/.next/static \
     && if [ -d public ]; then cp -R public .next/standalone/public; fi

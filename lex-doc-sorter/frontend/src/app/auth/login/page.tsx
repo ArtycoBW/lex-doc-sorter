@@ -11,8 +11,8 @@ import {
   ShieldCheck,
 } from "lucide-react"
 
-import { AnimatedBackground } from "@/components/ui/animated-background"
 import { Button } from "@/components/ui/button"
+import { FallingPattern } from "@/components/ui/falling-pattern"
 import { Input } from "@/components/ui/input"
 import {
   InputOTP,
@@ -127,7 +127,18 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-6 pr-[max(1rem,env(safe-area-inset-right))] sm:p-4">
-      <AnimatedBackground />
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-background" />
+        <div className="absolute inset-0 opacity-50 [mask-image:radial-gradient(ellipse_at_center,transparent_15%,black_70%)]">
+          <FallingPattern
+            className="h-full w-full"
+            color="hsl(217,91%,60%)"
+            backgroundColor="hsl(222,47%,6%)"
+            blurIntensity="3px"
+            duration={200}
+          />
+        </div>
+      </div>
 
       <div className="w-full max-w-md space-y-6 sm:space-y-8">
         <div className="text-center fade-in">

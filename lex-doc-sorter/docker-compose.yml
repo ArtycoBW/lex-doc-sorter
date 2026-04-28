@@ -40,8 +40,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lexdoc}:${POSTGRES_PASSWORD:-lexdoc_secret}@postgres:5432/${POSTGRES_DB:-lexdoc}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      FRONTEND_URL: http://localhost:3000
-      CORS_ORIGINS: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       PORT: 3001
       OTP_DEV_MODE: "true"
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -71,7 +71,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,backend}
@@ -79,7 +79,7 @@ services:
     container_name: lex-doc-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
     ports:
       - "3000:3000"
     depends_on:

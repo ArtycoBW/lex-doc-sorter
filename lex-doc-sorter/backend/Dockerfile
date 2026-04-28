@@ -15,6 +15,10 @@ ENV NPM_CONFIG_AUDIT=false \
     HTTPS_PROXY=${HTTPS_PROXY} \
     NO_PROXY=${NO_PROXY}
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json* .npmrc ./
 RUN npm ping --registry="${NPM_CONFIG_REGISTRY}" --fetch-retries=0 --fetch-timeout=15000 \
     || (echo "Cannot reach npm registry from Docker build. Check Docker Desktop internet/proxy settings or set HTTP_PROXY/HTTPS_PROXY/NPM_REGISTRY in .env." >&2; exit 1)
