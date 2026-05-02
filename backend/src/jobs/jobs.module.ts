@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { BasicProcessingService } from './basic-processing.service';
+import { DocumentDetectionService } from './document-detection.service';
 import { ImagePreprocessingService } from './image-preprocessing.service';
 import { ImageProcessorProcessor } from './image-processor.processor';
 import { JobsController } from './jobs.controller';
@@ -31,6 +32,7 @@ import {
   providers: [
     JobsService,
     BasicProcessingService,
+    DocumentDetectionService,
     ImagePreprocessingService,
     OcrService,
     ProcessingQueueService,

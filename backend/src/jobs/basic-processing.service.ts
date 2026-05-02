@@ -11,6 +11,7 @@ import { PDFDocument } from 'pdf-lib';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { DocumentDetectionService } from './document-detection.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
 import { ImagePreprocessingService } from './image-preprocessing.service';
 import { OcrService } from './ocr.service';
@@ -37,11 +38,14 @@ type ProcessResult = {
 
 @Injectable()
 export class BasicProcessingService {
+  private readonly finalizingJobs = new Set<string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly imagePreprocessing: ImagePreprocessingService,
     private readonly ocr: OcrService,
+    private readonly documentDetection: DocumentDetectionService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -267,6 +271,10 @@ export class BasicProcessingService {
   }
 
   private async finalizeJobIfFinished(jobId: string) {
+    if (this.finalizingJobs.has(jobId)) {
+      return;
+    }
+
     const job = await this.prisma.sortingJob.findUnique({
       where: { id: jobId },
       include: { files: { orderBy: { orderIndex: 'asc' } } },
@@ -296,16 +304,26 @@ export class BasicProcessingService {
       (file) => file.status === FileStatus.FAILED,
     );
 
-    await this.prisma.sortingJob.update({
-      where: { id: job.id },
-      data: {
-        status: hasFailedFiles ? JobStatus.FAILED : JobStatus.COMPLETED,
-        processedFiles,
-        errorMessage: hasFailedFiles
-          ? 'Часть файлов не удалось обработать'
-          : null,
-      },
-    });
+    this.finalizingJobs.add(jobId);
+
+    try {
+      if (!hasFailedFiles) {
+        await this.documentDetection.detectJobGroups(job.id);
+      }
+
+      await this.prisma.sortingJob.update({
+        where: { id: job.id },
+        data: {
+          status: hasFailedFiles ? JobStatus.FAILED : JobStatus.COMPLETED,
+          processedFiles,
+          errorMessage: hasFailedFiles
+            ? 'Часть файлов не удалось обработать'
+            : null,
+        },
+      });
+    } finally {
+      this.finalizingJobs.delete(jobId);
+    }
   }
 
   private async processFile(
