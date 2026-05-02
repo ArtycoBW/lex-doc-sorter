@@ -11,7 +11,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
-const DISMISS_KEY = "lex-doc-pwa-install-dismissed-v2"
+const DISMISS_KEY = "lex-doc-pwa-install-dismissed-v3"
 const LAST_HELP_KEY = "lex-doc-pwa-install-help-shown-at"
 
 function isStandalone() {
@@ -73,7 +73,21 @@ export function PwaInstallPrompt() {
       setIsControlled(true)
     }
 
+    const handlePwaRegistered = (event: Event) => {
+      const detail = (event as CustomEvent<{ controlled?: boolean }>).detail
+      setIsControlled(
+        Boolean(detail?.controlled || navigator.serviceWorker?.controller),
+      )
+    }
+
+    const handleInstalled = () => {
+      setDeferredPrompt(null)
+      setVisible(false)
+    }
+
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    window.addEventListener("appinstalled", handleInstalled)
+    window.addEventListener("lex-doc-pwa-registered", handlePwaRegistered)
     window.addEventListener("lex-doc-pwa-controlled", handlePwaControlled)
 
     return () => {
@@ -82,6 +96,8 @@ export function PwaInstallPrompt() {
         "beforeinstallprompt",
         handleBeforeInstallPrompt,
       )
+      window.removeEventListener("appinstalled", handleInstalled)
+      window.removeEventListener("lex-doc-pwa-registered", handlePwaRegistered)
       window.removeEventListener("lex-doc-pwa-controlled", handlePwaControlled)
     }
   }, [])
@@ -101,7 +117,7 @@ export function PwaInstallPrompt() {
         icon: MonitorDown,
         title: "Установка в браузере",
         text: isControlled
-          ? "Если системная кнопка не появилась, откройте меню браузера и выберите «Установить Lex-Doc Sorter». В Chrome и Edge пункт появляется только для HTTPS-страницы."
+          ? "Если вместо установки браузер показывает «Открыть», приложение уже установлено. Для повторного теста удалите старую версию в списке приложений браузера и обновите страницу."
           : "Приложение подготовлено. Обновите страницу один раз, чтобы браузер взял сайт под service worker, затем нажмите «Установить» снова.",
         action: isControlled ? "Понятно" : "Обновить",
       }

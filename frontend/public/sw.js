@@ -1,5 +1,14 @@
-const CACHE_NAME = "lex-doc-sorter-v2"
-const APP_SHELL = ["/", "/offline.html", "/manifest.webmanifest"]
+const CACHE_NAME = "lex-doc-sorter-v3"
+const APP_SHELL = [
+  "/offline.html",
+  "/manifest.webmanifest",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/maskable-192.png",
+  "/icons/maskable-512.png",
+  "/apple-touch-icon.png",
+  "/mstile-150.png",
+]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -56,8 +65,7 @@ self.addEventListener("fetch", (event) => {
 
   if (
     url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icons/") ||
-    url.pathname === "/manifest.webmanifest"
+    APP_SHELL.includes(url.pathname)
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {

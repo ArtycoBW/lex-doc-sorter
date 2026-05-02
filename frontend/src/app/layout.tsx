@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
     "apple-mobile-web-app-title": "Lex-Doc",
-    "msapplication-TileColor": "#2563eb",
+    "msapplication-TileColor": "#050a14",
     "msapplication-TileImage": "/mstile-150.png",
   },
 }
