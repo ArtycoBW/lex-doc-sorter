@@ -81,6 +81,23 @@
     animation: fadeInUp 0.5s ease-out forwards;
   }
 
+  .page-reveal {
+    animation: fadeInUp 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .install-prompt-reveal {
+    animation: installPromptIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .sidebar-label-reveal {
+    animation: fadeIn 0.22s ease-out both;
+  }
+
+  .stagger-reveal {
+    animation: fadeInUp 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--index, 0) * 55ms);
+  }
+
   .fade-in-up-delay-1 {
     animation: fadeInUp 0.5s ease-out 0.1s forwards;
     opacity: 0;
@@ -178,6 +195,23 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .fade-in-up,
+  .fade-in-up-delay-1,
+  .fade-in-up-delay-2,
+  .fade-in-up-delay-3,
+  .slide-in-right,
+  .page-reveal,
+  .install-prompt-reveal,
+  .sidebar-label-reveal,
+  .stagger-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -202,6 +236,17 @@
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes installPromptIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

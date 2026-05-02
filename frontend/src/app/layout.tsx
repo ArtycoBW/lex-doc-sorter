@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt"
 import { PwaRegister } from "@/components/pwa-register"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/context/auth-context"
@@ -42,6 +43,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <PwaRegister />
+            <PwaInstallPrompt />
             {children}
             <Toaster />
           </AuthProvider>
