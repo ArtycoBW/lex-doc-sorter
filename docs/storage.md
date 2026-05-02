@@ -19,7 +19,7 @@ S3-compatible mode, for example Timeweb Object Storage:
 
 ```env
 STORAGE_TYPE=s3
-S3_ENDPOINT=https://s3.timeweb.cloud
+S3_ENDPOINT=https://s3.twcstorage.ru
 S3_REGION=ru-1
 S3_BUCKET=lex-doc-files
 S3_ACCESS_KEY=...

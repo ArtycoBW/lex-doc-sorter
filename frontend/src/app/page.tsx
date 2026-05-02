@@ -16,12 +16,13 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { FallingPattern } from "@/components/ui/falling-pattern"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 const stats = [
-  { value: "PDF", label: "Единый формат вывода" },
-  { value: "OCR", label: "Готовность к распознаванию" },
-  { value: "S3", label: "Облачное хранилище" },
-  { value: "ZIP", label: "Архив для подачи" },
+  { value: "PDF", label: "Единый формат вывода", icon: FileStack },
+  { value: "OCR", label: "Готовность к распознаванию", icon: FileSearch },
+  { value: "S3", label: "Облачное хранилище", icon: Shield },
+  { value: "ZIP", label: "Архив для подачи", icon: FileArchive },
 ]
 
 const steps = [
@@ -82,19 +83,20 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/70 backdrop-blur-xl">
+      <header className="fixed top-0 z-50 w-full border-b border-border/30 bg-background/75 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-300 group-hover:shadow-glow-sm">
               <Scale className="h-4 w-4" />
             </span>
             <span className="text-sm font-semibold tracking-tight">Lex-Doc Sorter</span>
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1">
+            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
             <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <Link href="/auth/login">Войти</Link>
             </Button>
-            <Button asChild size="sm" className="gap-1.5">
+            <Button asChild size="sm" className="gap-1.5 ml-1">
               <Link href="/auth/register">
                 Начать
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -109,16 +111,23 @@ export default function HomePage() {
         <div className="absolute inset-0">
           <FallingPattern
             className="h-full w-full [mask-image:radial-gradient(ellipse_80%_80%_at_50%_40%,transparent_20%,black_65%)]"
-            color="hsl(217,91%,60%)"
-            backgroundColor="hsl(222,47%,6%)"
             blurIntensity="2px"
             duration={160}
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/95" />
 
+        {/* Ambient glow */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse 70% 50% at 50% 30%, hsl(var(--primary) / 0.15), transparent 70%)",
+          }}
+        />
+
         <div className="relative z-10 px-5 text-center sm:px-8">
-          <div className="fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/8 px-4 py-1.5 text-sm text-primary">
+          <div className="fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary shadow-[inset_0_1px_0_hsl(var(--primary)/0.2)]">
             <FileStack className="h-3.5 w-3.5" />
             Документооборот для юристов
           </div>
@@ -127,7 +136,7 @@ export default function HomePage() {
             Наведите порядок{" "}
             <br className="hidden sm:block" />
             в документах{" "}
-            <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent">
+            <span className="text-gradient">
               перед подачей
             </span>
           </h1>
@@ -138,7 +147,7 @@ export default function HomePage() {
           </p>
 
           <div className="fade-in-up-delay-2 mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Button asChild size="lg" className="gap-2 px-7">
+            <Button asChild variant="gradient" size="lg" className="gap-2 px-7">
               <Link href="/auth/register">
                 Попробовать бесплатно
                 <ArrowRight className="h-4 w-4" />
@@ -148,7 +157,7 @@ export default function HomePage() {
               asChild
               size="lg"
               variant="outline"
-              className="border-border/60 bg-card/40 backdrop-blur-sm"
+              className="border-border/60 bg-card/30 backdrop-blur-sm hover:bg-card/60"
             >
               <Link href="/auth/login">У меня есть аккаунт</Link>
             </Button>
@@ -166,12 +175,20 @@ export default function HomePage() {
       </section>
 
       {/* Stats */}
-      <section className="border-y border-border/40 bg-card/20">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 divide-x divide-y divide-border/40 px-0 md:grid-cols-4 md:divide-y-0">
-          {stats.map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center justify-center p-7 text-center">
-              <span className="font-mono text-2xl font-bold text-primary sm:text-3xl">{value}</span>
-              <span className="mt-1.5 text-xs text-muted-foreground sm:text-sm">{label}</span>
+      <section className="border-y border-border/30 bg-card/15">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px bg-border/30 md:grid-cols-4">
+          {stats.map(({ value, label, icon: Icon }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center gap-3 bg-background p-8 text-center transition-colors duration-300 hover:bg-card/50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block font-mono text-2xl font-bold text-primary sm:text-3xl">{value}</span>
+                <span className="mt-1 block text-xs text-muted-foreground sm:text-sm">{label}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -186,14 +203,17 @@ export default function HomePage() {
           </h2>
         </div>
 
-        <div className="relative grid gap-10 md:grid-cols-3">
-          <div className="absolute left-[16.67%] right-[16.67%] top-8 hidden h-px bg-gradient-to-r from-transparent via-border to-transparent md:block" />
+        <div className="relative grid gap-8 md:grid-cols-3 md:gap-6">
+          {/* Connecting line */}
+          <div className="absolute left-[16.67%] right-[16.67%] top-8 hidden h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent md:block" />
 
           {steps.map((step) => (
             <article key={step.title} className="relative flex flex-col items-center text-center">
-              <div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card shadow-lg">
-                <step.icon className="h-7 w-7 text-primary" />
-                <span className="absolute -right-2.5 -top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              <div className="relative mb-5">
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-card shadow-lg transition-all duration-300 hover:border-primary/40 hover:shadow-glow-sm">
+                  <step.icon className="h-7 w-7 text-primary" />
+                </div>
+                <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-md shadow-blue-500/30">
                   {step.number.slice(-1)}
                 </span>
               </div>
@@ -205,7 +225,7 @@ export default function HomePage() {
       </section>
 
       {/* Features */}
-      <section className="border-t border-border/40 bg-muted/10">
+      <section className="border-t border-border/30 bg-muted/8">
         <div className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8">
           <div className="mb-14 text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">Возможности</p>
@@ -218,9 +238,9 @@ export default function HomePage() {
             {features.map((feature) => (
               <article
                 key={feature.title}
-                className="group rounded-xl border border-border/60 bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
+                className="group rounded-xl border border-border/60 bg-card p-6 hover-glow"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
                   <feature.icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="font-semibold">{feature.title}</h3>
@@ -233,27 +253,34 @@ export default function HomePage() {
 
       {/* CTA */}
       <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8">
-        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-10 text-center sm:p-16">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-10 text-center sm:p-16">
+          {/* Multi-point gradient mesh */}
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              backgroundImage:
-                "radial-gradient(ellipse at top left, hsl(217 91% 60% / 0.12), transparent 60%)",
+              backgroundImage: [
+                "radial-gradient(ellipse 60% 60% at 20% 20%, hsl(var(--primary) / 0.12), transparent 60%)",
+                "radial-gradient(ellipse 50% 50% at 80% 80%, hsl(245 80% 70% / 0.08), transparent 60%)",
+                "radial-gradient(ellipse 40% 40% at 50% 0%, hsl(var(--primary) / 0.07), transparent 70%)",
+              ].join(", "),
             }}
           />
           <div className="relative">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/15">
+              <Scale className="h-7 w-7 text-primary" />
+            </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Готовы начать?</h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
               Зарегистрируйтесь бесплатно и начните упорядочивать документы прямо сейчас.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button asChild size="lg" className="gap-2">
+              <Button asChild variant="gradient" size="lg" className="gap-2">
                 <Link href="/auth/register">
                   Создать аккаунт
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
+              <Button asChild size="lg" variant="outline" className="border-border/60 bg-card/50">
                 <Link href="/auth/login">Войти в систему</Link>
               </Button>
             </div>
@@ -262,13 +289,13 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 bg-card/10">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
-          <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground">
+      <footer className="border-t border-border/30 bg-card/8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:px-8">
+          <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
             <Scale className="h-4 w-4" />
             Lex-Doc Sorter
           </Link>
-          <p className="text-xs text-muted-foreground">© 2025 Lex-Doc Sorter</p>
+          <p className="text-xs text-muted-foreground">© 2025 Lex-Doc Sorter. Все права защищены.</p>
         </div>
       </footer>
     </main>

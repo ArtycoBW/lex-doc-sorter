@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 92%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 92%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 92%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 92%;
-    --muted: 217 33% 14%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 92%;
-    --destructive: 0 63% 55%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
+    --background: 222 47% 5%;
+    --foreground: 214 32% 91%;
+    --card: 222 43% 7.5%;
+    --card-foreground: 214 32% 91%;
+    --popover: 222 43% 7.5%;
+    --popover-foreground: 214 32% 91%;
+    --primary: 217 94% 63%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 218 38% 13%;
+    --secondary-foreground: 214 32% 91%;
+    --muted: 218 38% 11%;
+    --muted-foreground: 215 22% 53%;
+    --accent: 218 38% 14%;
+    --accent-foreground: 214 32% 91%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 38% 15%;
+    --input: 218 38% 15%;
+    --ring: 217 94% 63%;
+    --radius: 0.75rem;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
   }
@@ -35,30 +35,31 @@
   html.light {
     color-scheme: light;
     --background: 210 33% 98%;
-    --foreground: 222 47% 12%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 12%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 12%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 35% 93%;
-    --secondary-foreground: 222 47% 16%;
-    --muted: 210 32% 95%;
-    --muted-foreground: 222 16% 42%;
-    --accent: 210 35% 93%;
-    --accent-foreground: 222 47% 16%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 86% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 36% 92%;
+    --secondary-foreground: 222 47% 14%;
+    --muted: 210 32% 94%;
+    --muted-foreground: 222 16% 44%;
+    --accent: 210 36% 92%;
+    --accent-foreground: 222 47% 14%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 86%;
-    --input: 214 32% 86%;
-    --ring: 221 83% 53%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 87%;
+    --input: 214 32% 87%;
+    --ring: 221 86% 55%;
   }
 
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
     overflow-x: clip;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
   }
   body {
     overflow-x: clip;
@@ -110,6 +111,50 @@
     @apply -translate-y-1 shadow-lg;
   }
 
+  /* Gradient text utility */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(210 100% 72%), hsl(217 91% 63%), hsl(245 80% 70%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Hover glow border effect */
+  .hover-glow {
+    @apply transition-all duration-300;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 8px 32px -4px hsl(var(--primary) / 0.12);
+    border-color: hsl(var(--primary) / 0.4) !important;
+    transform: translateY(-2px);
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--primary) / 0.06) 50%,
+      transparent 100%
+    );
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+
   .scrollbar-subtle {
     scrollbar-width: thin;
     scrollbar-color: rgba(71, 85, 105, 0.9) rgba(15, 23, 42, 0.18);
@@ -133,6 +178,10 @@
 
   .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
     background: rgba(100, 116, 139, 1);
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 }
 
@@ -173,8 +222,17 @@
   to { transform: rotate(360deg); }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px -2px hsl(var(--primary) / 0.3); }
+  50% { box-shadow: 0 0 28px -2px hsl(var(--primary) / 0.55); }
 }

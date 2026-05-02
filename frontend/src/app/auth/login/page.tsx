@@ -129,11 +129,9 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-6 pr-[max(1rem,env(safe-area-inset-right))] sm:p-4">
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-background" />
-        <div className="absolute inset-0 opacity-50 [mask-image:radial-gradient(ellipse_at_center,transparent_15%,black_70%)]">
+        <div className="absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_center,transparent_15%,black_70%)]">
           <FallingPattern
             className="h-full w-full"
-            color="hsl(217,91%,60%)"
-            backgroundColor="hsl(222,47%,6%)"
             blurIntensity="3px"
             duration={200}
           />
