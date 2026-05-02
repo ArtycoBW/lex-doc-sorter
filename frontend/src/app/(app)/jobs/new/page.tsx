@@ -3,8 +3,10 @@
 import { ChangeEvent, DragEvent, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  Camera,
   CheckCircle2,
   FileText,
+  FolderOpen,
   ImageIcon,
   Loader2,
   UploadCloud,
@@ -41,9 +43,14 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+function getFileId(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`
+}
+
 export default function NewJobPage() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const filesRef = useRef<SelectedFile[]>([])
   const [files, setFiles] = useState<SelectedFile[]>([])
   const [dragActive, setDragActive] = useState(false)
@@ -87,7 +94,7 @@ export default function NewJobPage() {
       }
 
       nextItems.push({
-        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+        id: getFileId(file),
         file,
         previewUrl: file.type.startsWith("image/")
           ? URL.createObjectURL(file)
@@ -187,7 +194,7 @@ export default function NewJobPage() {
 
       <section
         className={cn(
-          "relative overflow-hidden rounded-lg border border-dashed border-border bg-card/55 p-6 transition-colors",
+          "relative overflow-hidden rounded-lg border border-dashed border-border bg-card/55 p-4 transition-colors sm:p-6",
           dragActive && "border-primary bg-primary/8",
         )}
         onDragOver={handleDragOver}
@@ -202,6 +209,14 @@ export default function NewJobPage() {
           className="sr-only"
           onChange={handleInputChange}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          onChange={handleInputChange}
+        />
 
         <div className="flex min-h-64 flex-col items-center justify-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-md bg-primary/12 text-primary">
@@ -211,18 +226,29 @@ export default function NewJobPage() {
             Перетащите фото или PDF сюда
           </h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-            JPG, PNG и PDF до 50 МБ. В одном задании можно собрать до 500
-            файлов.
+            JPG, PNG и PDF до 50 МБ. В одном задании можно собрать до 500 файлов.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-5"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            Выбрать файлы
-          </Button>
+          <div className="mt-5 grid w-full max-w-sm gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              className="gap-2 sm:hidden"
+              disabled={uploading}
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              <Camera className="h-4 w-4" />
+              Снять фото
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Выбрать файлы
+            </Button>
+          </div>
         </div>
       </section>
 
