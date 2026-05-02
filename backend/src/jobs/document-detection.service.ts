@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FileStatus } from '@prisma/client';
+import * as path from 'path';
+import sharp = require('sharp');
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
 
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
@@ -30,6 +33,10 @@ type DetectionResult = {
   docParties: string[];
 };
 
+type GeminiPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
 @Injectable()
 export class DocumentDetectionService {
   private readonly logger = new Logger(DocumentDetectionService.name);
@@ -37,7 +44,10 @@ export class DocumentDetectionService {
   private readonly model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   private readonly enabled = process.env.DOCUMENT_DETECTION_ENABLED !== 'false';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async detectJobGroups(jobId: string) {
     const job = await this.prisma.sortingJob.findUnique({
@@ -60,7 +70,12 @@ export class DocumentDetectionService {
         continue;
       }
 
-      const detection = await this.detectFile(file.ocrText, file.originalName);
+      const visualPart = await this.getVisualPart(file.originalPath, file.originalName);
+      const detection = await this.detectFile(
+        file.ocrText,
+        file.originalName,
+        visualPart,
+      );
       const startsNewGroup = groupIndex < 0 || file.orderIndex === 0 || detection.isNewDocument;
 
       if (startsNewGroup) {
@@ -81,10 +96,14 @@ export class DocumentDetectionService {
     }
   }
 
-  private async detectFile(ocrText: string | null, originalName: string) {
+  private async detectFile(
+    ocrText: string | null,
+    originalName: string,
+    visualPart: GeminiPart | null,
+  ) {
     const text = this.prepareText(ocrText);
 
-    if (!text) {
+    if (!text && !visualPart) {
       return this.detectWithHeuristics('', originalName);
     }
 
@@ -93,7 +112,9 @@ export class DocumentDetectionService {
     }
 
     try {
-      return this.normalizeResult(await this.detectWithGemini(text));
+      return this.normalizeResult(
+        await this.detectWithGemini(this.maskSensitiveData(text), visualPart),
+      );
     } catch (error) {
       this.logger.warn(
         `Gemini document detection failed: ${
@@ -104,7 +125,13 @@ export class DocumentDetectionService {
     }
   }
 
-  private async detectWithGemini(text: string) {
+  private async detectWithGemini(text: string, visualPart: GeminiPart | null) {
+    const parts: GeminiPart[] = [{ text: this.buildPrompt(text) }];
+
+    if (visualPart) {
+      parts.push(visualPart);
+    }
+
     const response = await fetch(
       `${GEMINI_ENDPOINT}/models/${this.model}:generateContent?key=${this.apiKey}`,
       {
@@ -114,7 +141,7 @@ export class DocumentDetectionService {
           contents: [
             {
               role: 'user',
-              parts: [{ text: this.buildPrompt(text) }],
+              parts,
             },
           ],
           generationConfig: {
@@ -165,11 +192,15 @@ export class DocumentDetectionService {
   private buildPrompt(text: string) {
     return `Ты — ассистент для анализа юридических документов.
 
-Проанализируй текст ниже и определи:
+Проанализируй OCR-текст ниже и, если приложено изображение страницы, проверь заголовок и визуальные признаки по изображению.
+Текст заранее обезличен: ФИО, телефоны, адреса, ИНН, паспорта и email заменены на метки.
+
+Определи:
 1. Является ли это НАЧАЛОМ нового самостоятельного документа?
    Признаки начала: заголовок ("Договор", "Акт", "Приложение №", "Решение", "Определение",
    "Постановление", "Счёт", "Накладная", "Доверенность", "Протокол", "Уведомление",
-   "Справка", "Выписка", "Заявление" и т.д.)
+   "Справка", "Выписка", "Заявление", "Кассовый чек", "Товарный чек" и т.д.)
+   Для счёта, накладной, кассового или товарного чека новая фотография обычно является новым документом.
 2. Тип: contract / act / appendix / decision / ruling / invoice / power_of_attorney /
    protocol / notice / certificate / statement / other
 3. Дата (формат DD.MM.YYYY, или null)
@@ -217,6 +248,10 @@ export class DocumentDetectionService {
   }
 
   private hasDocumentStart(text: string, docType: string) {
+    if (/\b(кассовый\s+чек|товарный\s+чек|фн|фд|фп|итог|приход)\b/.test(text)) {
+      return true;
+    }
+
     if (docType === 'other') {
       return /^(арбитражный суд|в\s+суд|иск|ходатайство|жалоба)\b/i.test(text);
     }
@@ -262,6 +297,47 @@ export class DocumentDetectionService {
 
   private prepareText(text: string | null) {
     return (text || '').replace(/\s+/g, ' ').trim().slice(0, OCR_TEXT_LIMIT);
+  }
+
+  private async getVisualPart(originalPath: string, originalName: string) {
+    const extension = path.extname(decodePossiblyMojibakeFileName(originalName)).toLowerCase();
+
+    if (extension === '.pdf') {
+      return null;
+    }
+
+    try {
+      const buffer = await this.storage.download(originalPath);
+      const image = await sharp(buffer, { failOn: 'none' })
+        .rotate()
+        .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 78, mozjpeg: true })
+        .toBuffer();
+
+      return {
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: image.toString('base64'),
+        },
+      } satisfies GeminiPart;
+    } catch (error) {
+      this.logger.warn(
+        `Vision preview failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  private maskSensitiveData(text: string) {
+    return text
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL]')
+      .replace(/(?:\+7|8)?[\s(.-]*\d{3}[\s).-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}/g, '[PHONE]')
+      .replace(/\b\d{12}\b/g, '[INN_12]')
+      .replace(/\b\d{10}\b/g, '[INN_10]')
+      .replace(/\b\d{4}\s?\d{6}\b/g, '[PASSPORT]')
+      .replace(/\b\d{3}-\d{3}-\d{3}\s?\d{2}\b/g, '[SNILS]')
+      .replace(/\b(?:г\.|город|ул\.|улица|пр-т|проспект|д\.|дом|кв\.)\s*[^,.;\n]{3,80}/gi, '[ADDRESS]')
+      .replace(/\b[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2}\b/g, '[PERSON]');
   }
 
   private unwrapJson(text: string) {

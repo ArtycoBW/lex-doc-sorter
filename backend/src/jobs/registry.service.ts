@@ -4,6 +4,7 @@ import {
   AlignmentType,
   Document,
   Footer,
+  PageOrientation,
   Packer,
   Paragraph,
   Table,
@@ -44,6 +45,17 @@ export class RegistryService {
 
     if (job.userId !== userId) {
       throw new ForbiddenException('Нет доступа к этому заданию');
+    }
+
+    const completedFiles = job.files.filter((file) => file.status === FileStatus.COMPLETED);
+    const hasSmartMarkup = completedFiles.some(
+      (file) => file.groupIndex !== null || file.docType || file.docSummary,
+    );
+
+    if (completedFiles.length > 1 && !hasSmartMarkup) {
+      throw new BadRequestException(
+        'Для описи запустите обработку задания: система определит документы, даты и названия.',
+      );
     }
 
     const rows = this.buildRows(job.files);
@@ -112,6 +124,21 @@ export class RegistryService {
   private async buildXlsx(rows: RegistryRow[]) {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Реестр документов');
+    sheet.pageSetup = {
+      orientation: 'landscape',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: {
+        left: 0.25,
+        right: 0.25,
+        top: 0.4,
+        bottom: 0.4,
+        header: 0.2,
+        footer: 0.2,
+      },
+    };
+    sheet.views = [{ state: 'frozen', ySplit: 4 }];
 
     sheet.mergeCells('A1:G1');
     sheet.getCell('A1').value = 'Реестр документов к заявлению';
@@ -152,6 +179,14 @@ export class RegistryService {
 
     sheet.eachRow((row, rowNumber) => {
       row.alignment = { vertical: 'middle', wrapText: true };
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        };
+      });
 
       if (rowNumber > 4 && rowNumber % 2 === 0) {
         row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
@@ -162,24 +197,25 @@ export class RegistryService {
   }
 
   private async buildDocx(rows: RegistryRow[]) {
+    const columnWidths = [700, 5200, 1300, 1500, 4200, 900, 1100];
     const tableRows = [
       new TableRow({
         tableHeader: true,
-        children: ['№ п/п', 'Наименование', 'Дата', 'Номер', 'Стороны', 'Страниц', 'Размер (МБ)'].map((value) =>
-          this.tableCell(value, true),
+        children: ['№', 'Наименование', 'Дата', 'Номер', 'Стороны', 'Стр.', 'Размер, МБ'].map((value, index) =>
+          this.tableCell(value, true, columnWidths[index]),
         ),
       }),
       ...rows.map(
         (row) =>
           new TableRow({
             children: [
-              this.tableCell(String(row.index)),
-              this.tableCell(row.name),
-              this.tableCell(row.date),
-              this.tableCell(row.number),
-              this.tableCell(row.parties),
-              this.tableCell(String(row.pages)),
-              this.tableCell(row.sizeMb),
+              this.tableCell(String(row.index), false, columnWidths[0]),
+              this.tableCell(row.name, false, columnWidths[1]),
+              this.tableCell(row.date, false, columnWidths[2]),
+              this.tableCell(row.number, false, columnWidths[3]),
+              this.tableCell(row.parties, false, columnWidths[4]),
+              this.tableCell(String(row.pages), false, columnWidths[5]),
+              this.tableCell(row.sizeMb, false, columnWidths[6]),
             ],
           }),
       ),
@@ -188,6 +224,19 @@ export class RegistryService {
     const doc = new Document({
       sections: [
         {
+          properties: {
+            page: {
+              size: { orientation: PageOrientation.LANDSCAPE },
+              margin: {
+                top: 720,
+                right: 540,
+                bottom: 720,
+                left: 540,
+                header: 360,
+                footer: 360,
+              },
+            },
+          },
           footers: {
             default: new Footer({
               children: [
@@ -231,11 +280,18 @@ export class RegistryService {
     return Packer.toBuffer(doc);
   }
 
-  private tableCell(value: string, bold = false) {
+  private tableCell(value: string, bold = false, width?: number) {
     return new TableCell({
+      width: width ? { size: width, type: WidthType.DXA } : undefined,
+      margins: {
+        top: 80,
+        bottom: 80,
+        left: 90,
+        right: 90,
+      },
       children: [
         new Paragraph({
-          children: [new TextRun({ text: value || ' ', bold })],
+          children: [new TextRun({ text: value || ' ', bold, size: bold ? 18 : 16 })],
         }),
       ],
     });

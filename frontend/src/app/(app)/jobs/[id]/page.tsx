@@ -214,6 +214,19 @@ export default function JobDetailsPage() {
     () => getDocumentGroups(job?.files || []),
     [job?.files],
   )
+  const hasSmartMarkup = useMemo(
+    () =>
+      Boolean(
+        job?.files.some(
+          (file) => file.groupIndex !== null || file.docType || file.docSummary,
+        ),
+      ),
+    [job?.files],
+  )
+  const canDownloadRegistry = Boolean(canDownload && hasSmartMarkup)
+  const needsSmartRebuild = Boolean(
+    job?.status === "COMPLETED" && job.files.length > 1 && !hasSmartMarkup,
+  )
 
   const startEdit = (file: ProcessedFile) => {
     setEditingFileId(file.id)
@@ -418,7 +431,7 @@ export default function JobDetailsPage() {
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              Обработать
+              {job.status === "COMPLETED" ? "Пересобрать" : "Обработать"}
             </Button>
             {canCancel && (
               <Button
@@ -440,7 +453,7 @@ export default function JobDetailsPage() {
               type="button"
               variant="outline"
               className="gap-2"
-              disabled={!canDownload || applyingNames}
+              disabled={!canDownloadRegistry || applyingNames}
               onClick={() => void applySmartNames()}
             >
               {applyingNames ? (
@@ -454,7 +467,7 @@ export default function JobDetailsPage() {
               type="button"
               variant="outline"
               className="gap-2"
-              disabled={!canDownload || registryDownloading !== null}
+              disabled={!canDownloadRegistry || registryDownloading !== null}
               onClick={() => void downloadRegistry("xlsx")}
             >
               {registryDownloading === "xlsx" ? (
@@ -468,7 +481,7 @@ export default function JobDetailsPage() {
               type="button"
               variant="outline"
               className="gap-2"
-              disabled={!canDownload || registryDownloading !== null}
+              disabled={!canDownloadRegistry || registryDownloading !== null}
               onClick={() => void downloadRegistry("docx")}
             >
               {registryDownloading === "docx" ? (
@@ -524,16 +537,30 @@ export default function JobDetailsPage() {
         </div>
       </section>
 
+      {needsSmartRebuild && (
+        <section className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-5 py-4 text-sm text-foreground">
+          <div className="font-medium">Задание обработано старым режимом</div>
+          <p className="mt-1 max-w-3xl text-muted-foreground">
+            Для описи DOCX/XLSX нужно заново запустить обработку: система определит
+            границы документов, извлечёт метаданные и предложит имена по маске.
+          </p>
+        </section>
+      )}
+
       <section className="overflow-hidden rounded-2xl border border-border bg-card/72">
         <div className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Документы задания</h2>
+            <h2 className="text-lg font-semibold">
+              {hasSmartMarkup ? "Документы задания" : "Файлы задания"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {documentGroups.length} PDF из {job.files.length} загруженных файлов
+              {hasSmartMarkup
+                ? `${documentGroups.length} PDF из ${job.files.length} загруженных файлов`
+                : `${job.files.length} файлов без умной разметки`}
             </p>
           </div>
           <Badge variant="outline" className="w-fit rounded-full px-3 py-1">
-            Умная маска имён
+            {hasSmartMarkup ? "Умная маска имён" : "Нужна пересборка"}
           </Badge>
         </div>
         <div className="divide-y divide-border">
