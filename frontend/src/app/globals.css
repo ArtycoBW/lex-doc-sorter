@@ -4,35 +4,6 @@
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
-    --foreground: 214 32% 91%;
-    --card: 222 43% 7.5%;
-    --card-foreground: 214 32% 91%;
-    --popover: 222 43% 7.5%;
-    --popover-foreground: 214 32% 91%;
-    --primary: 217 94% 63%;
-    --primary-foreground: 222 47% 5%;
-    --secondary: 218 38% 13%;
-    --secondary-foreground: 214 32% 91%;
-    --muted: 218 38% 11%;
-    --muted-foreground: 215 22% 53%;
-    --accent: 218 38% 14%;
-    --accent-foreground: 214 32% 91%;
-    --destructive: 0 65% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 218 38% 15%;
-    --input: 218 38% 15%;
-    --ring: 217 94% 63%;
-    --radius: 0.75rem;
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-  }
-
-  html.dark {
-    color-scheme: dark;
-  }
-
-  html.light {
     color-scheme: light;
     --background: 210 33% 98%;
     --foreground: 222 47% 11%;
@@ -40,26 +11,52 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 86% 55%;
+    --primary: 217 85% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 36% 92%;
+    --secondary: 214 35% 93%;
     --secondary-foreground: 222 47% 14%;
-    --muted: 210 32% 94%;
-    --muted-foreground: 222 16% 44%;
-    --accent: 210 36% 92%;
+    --muted: 214 35% 95%;
+    --muted-foreground: 217 16% 42%;
+    --accent: 215 38% 92%;
     --accent-foreground: 222 47% 14%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 87%;
     --input: 214 32% 87%;
-    --ring: 221 86% 55%;
+    --ring: 217 85% 55%;
+    --radius: 0.6rem;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --background: 222 47% 5%;
+    --foreground: 214 32% 91%;
+    --card: 222 43% 7.5%;
+    --card-foreground: 214 32% 91%;
+    --popover: 222 43% 7.5%;
+    --popover-foreground: 214 32% 91%;
+    --primary: 217 85% 63%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 218 38% 13%;
+    --secondary-foreground: 214 32% 91%;
+    --muted: 218 38% 11%;
+    --muted-foreground: 215 22% 62%;
+    --accent: 218 38% 14%;
+    --accent-foreground: 214 32% 91%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 38% 15%;
+    --input: 218 38% 15%;
+    --ring: 217 85% 63%;
   }
 
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
     overflow-x: clip;
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    font-family: "Geist", "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   }
   body {
     overflow-x: clip;
@@ -111,12 +108,8 @@
     @apply -translate-y-1 shadow-lg;
   }
 
-  /* Gradient text utility */
   .text-gradient {
-    background: linear-gradient(135deg, hsl(210 100% 72%), hsl(217 91% 63%), hsl(245 80% 70%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--primary));
   }
 
   /* Hover glow border effect */

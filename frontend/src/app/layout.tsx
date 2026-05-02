@@ -16,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-[100dvh] bg-background text-foreground antialiased">
         <ThemeProvider>
           <AuthProvider>
             {children}

@@ -20,11 +20,23 @@ import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 
 const navigation = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { href: "/jobs/new", label: "Новое задание", icon: Upload },
   { href: "/jobs", label: "Мои задания", icon: FolderOpen },
   { href: "/profile", label: "Профиль", icon: User },
 ]
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/dashboard") {
+    return pathname === href
+  }
+
+  if (href === "/jobs") {
+    return pathname === "/jobs" || /^\/jobs\/(?!new(?:\/|$))/.test(pathname)
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 function getInitials(displayName: string) {
   const parts = displayName.trim().split(/\s+/)
@@ -80,12 +92,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </Link>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
           const Icon = item.icon
-          const active =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href))
+          const active = isActivePath(pathname, item.href)
 
           return (
             <Link
@@ -93,17 +103,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200",
+                "group relative flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-all duration-200",
                 active
-                  ? "bg-gradient-to-r from-primary/18 to-primary/6 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  ? "bg-primary/12 text-primary shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                  : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
               )}
             >
-              <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+              <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5", active && "text-primary")} />
               <span className="truncate">{item.label}</span>
-              {active && (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
             </Link>
           )
         })}
@@ -159,8 +166,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-border/60 bg-card/60 backdrop-blur-xl lg:block">
+    <div className="min-h-[100dvh] bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_16%_8%,hsl(var(--primary)/0.10),transparent_28%),linear-gradient(135deg,hsl(var(--muted)/0.38),transparent_36%)]" />
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-border/70 bg-card/80 shadow-[18px_0_40px_-34px_hsl(var(--foreground)/0.45)] backdrop-blur-xl lg:block">
         <Sidebar />
       </aside>
 
@@ -208,7 +216,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="lg:pl-72">
+      <main className="relative lg:pl-72">
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </div>

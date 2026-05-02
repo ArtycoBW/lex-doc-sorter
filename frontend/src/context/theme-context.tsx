@@ -15,8 +15,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark")
 
   const applyTheme = useCallback((nextTheme: Theme) => {
-    document.documentElement.classList.toggle("dark", nextTheme === "dark")
-    document.documentElement.classList.toggle("light", nextTheme === "light")
+    const root = document.documentElement
+    root.classList.toggle("dark", nextTheme === "dark")
+    root.dataset.theme = nextTheme
     document.documentElement.style.colorScheme = nextTheme
   }, [])
 

@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import {
   ArrowRight,
@@ -17,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { FallingPattern } from "@/components/ui/falling-pattern"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { useAuth } from "@/context/auth-context"
 
 const stats = [
   { value: "PDF", label: "Единый формат вывода", icon: FileStack },
@@ -80,6 +83,9 @@ const features = [
 ]
 
 export default function HomePage() {
+  const { user, loading } = useAuth()
+  const isAuthorized = Boolean(user)
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -93,21 +99,32 @@ export default function HomePage() {
           </Link>
           <nav className="flex items-center gap-1">
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
-            <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              <Link href="/auth/login">Войти</Link>
-            </Button>
-            <Button asChild size="sm" className="gap-1.5 ml-1">
-              <Link href="/auth/register">
-                Начать
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
+            {isAuthorized ? (
+              <Button asChild size="sm" className="ml-1 gap-1.5">
+                <Link href="/dashboard">
+                  Дашборд
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                  <Link href="/auth/login">Войти</Link>
+                </Button>
+                <Button asChild size="sm" className="ml-1 gap-1.5">
+                  <Link href="/auth/register">
+                    {loading ? "Проверяем" : "Начать"}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            )}
           </nav>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden pt-16">
+      <section className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden pt-16">
         <div className="absolute inset-0">
           <FallingPattern
             className="h-full w-full [mask-image:radial-gradient(ellipse_80%_80%_at_50%_40%,transparent_20%,black_65%)]"
@@ -148,8 +165,8 @@ export default function HomePage() {
 
           <div className="fade-in-up-delay-2 mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Button asChild variant="gradient" size="lg" className="gap-2 px-7">
-              <Link href="/auth/register">
-                Попробовать бесплатно
+              <Link href={isAuthorized ? "/dashboard" : "/auth/register"}>
+                {isAuthorized ? "Открыть дашборд" : "Попробовать бесплатно"}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -159,7 +176,9 @@ export default function HomePage() {
               variant="outline"
               className="border-border/60 bg-card/30 backdrop-blur-sm hover:bg-card/60"
             >
-              <Link href="/auth/login">У меня есть аккаунт</Link>
+              <Link href={isAuthorized ? "/jobs/new" : "/auth/login"}>
+                {isAuthorized ? "Создать задание" : "У меня есть аккаунт"}
+              </Link>
             </Button>
           </div>
 
@@ -275,13 +294,15 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button asChild variant="gradient" size="lg" className="gap-2">
-                <Link href="/auth/register">
-                  Создать аккаунт
+                <Link href={isAuthorized ? "/dashboard" : "/auth/register"}>
+                  {isAuthorized ? "Перейти в дашборд" : "Создать аккаунт"}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="border-border/60 bg-card/50">
-                <Link href="/auth/login">Войти в систему</Link>
+                <Link href={isAuthorized ? "/jobs/new" : "/auth/login"}>
+                  {isAuthorized ? "Новое задание" : "Войти в систему"}
+                </Link>
               </Button>
             </div>
           </div>
