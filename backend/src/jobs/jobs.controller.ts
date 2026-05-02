@@ -24,6 +24,7 @@ import { UpdateFileNameDto } from './dto/update-file-name.dto';
 import { JobsService } from './jobs.service';
 import { NamingService } from './naming.service';
 import { ProcessingQueueService } from './processing-queue.service';
+import { RegistryService } from './registry.service';
 
 const MAX_FILES = 500;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -48,6 +49,7 @@ export class JobsController {
     private readonly basicProcessingService: BasicProcessingService,
     private readonly processingQueueService: ProcessingQueueService,
     private readonly namingService: NamingService,
+    private readonly registryService: RegistryService,
   ) {}
 
   @Post()
@@ -121,6 +123,27 @@ export class JobsController {
       jobId,
       response,
     );
+  }
+
+  @Get(':id/registry')
+  async downloadRegistry(
+    @Req() req: any,
+    @Param('id') jobId: string,
+    @Query('format') format = 'xlsx',
+    @Res() response: Response,
+  ) {
+    const registry = await this.registryService.buildRegistry(
+      req.user.sub,
+      jobId,
+      format,
+    );
+
+    response.setHeader('Content-Type', registry.mimeType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${registry.fileName}"`,
+    );
+    response.send(registry.buffer);
   }
 
   @Get(':id/progress')

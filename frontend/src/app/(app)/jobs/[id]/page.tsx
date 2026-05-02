@@ -6,6 +6,7 @@ import {
   Archive,
   Ban,
   CheckCircle2,
+  FileDown,
   FileText,
   Loader2,
   PencilLine,
@@ -148,6 +149,7 @@ export default function JobDetailsPage() {
   const [processing, setProcessing] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [registryDownloading, setRegistryDownloading] = useState<"xlsx" | "docx" | null>(null)
   const [applyingNames, setApplyingNames] = useState(false)
   const [error, setError] = useState("")
 
@@ -321,6 +323,24 @@ export default function JobDetailsPage() {
     }
   }
 
+  const downloadRegistry = async (format: "xlsx" | "docx") => {
+    if (!job) {
+      return
+    }
+
+    setRegistryDownloading(format)
+    setError("")
+
+    try {
+      const registry = await api.downloadJobRegistry(job.id, format)
+      downloadBlob(registry.blob, registry.fileName)
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Не удалось скачать реестр"))
+    } finally {
+      setRegistryDownloading(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[22rem] items-center justify-center text-muted-foreground">
@@ -429,6 +449,34 @@ export default function JobDetailsPage() {
                 <Sparkles className="h-4 w-4" />
               )}
               Применить имена
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={!canDownload || registryDownloading !== null}
+              onClick={() => void downloadRegistry("xlsx")}
+            >
+              {registryDownloading === "xlsx" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              Реестр XLSX
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={!canDownload || registryDownloading !== null}
+              onClick={() => void downloadRegistry("docx")}
+            >
+              {registryDownloading === "docx" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              Реестр DOCX
             </Button>
             <Button
               type="button"

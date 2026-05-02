@@ -15,6 +15,7 @@ import {
   IMAGE_PROCESSOR_QUEUE,
   ProcessingQueueService,
 } from './processing-queue.service';
+import { RegistryService } from './registry.service';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import {
     OcrService,
     PdfBuilderService,
     ProcessingQueueService,
+    RegistryService,
     ImageProcessorProcessor,
   ],
 })

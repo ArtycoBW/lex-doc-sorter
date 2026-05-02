@@ -981,6 +981,33 @@ export const api = {
     }
   },
 
+  downloadJobRegistry: async (jobId: string, format: 'xlsx' | 'docx') => {
+    try {
+      const res = await authorizedFetch(`/jobs/${jobId}/registry?format=${format}`);
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Ошибка выгрузки реестра' }));
+        throw new Error(normalizeErrorMessage(error.message, res.status, `/jobs/${jobId}/registry`));
+      }
+
+      const contentDisposition = res.headers.get('Content-Disposition') ?? '';
+      const fileName =
+        contentDisposition.match(/filename="([^"]+)"/)?.[1] ??
+        `registry_${jobId.slice(0, 8)}.${format}`;
+
+      return {
+        blob: await res.blob(),
+        fileName,
+      };
+    } catch (error: any) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : normalizeErrorMessage(error?.message, undefined, `/jobs/${jobId}/registry`),
+      );
+    }
+  },
+
   deleteJob: (jobId: string) =>
     request<{ message: string }>(`/jobs/${jobId}`, { method: 'DELETE' }),
 
