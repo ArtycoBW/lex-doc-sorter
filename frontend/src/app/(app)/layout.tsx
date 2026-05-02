@@ -115,7 +115,7 @@ function Sidebar({
           type="button"
           aria-label={collapsed ? "Развернуть сайдбар" : "Свернуть сайдбар"}
           title={collapsed ? "Развернуть" : "Свернуть"}
-          className="absolute right-0 top-[52px] hidden h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-border/80 bg-card/95 text-muted-foreground shadow-[0_16px_40px_-24px_hsl(var(--foreground)/0.8)] backdrop-blur-xl transition-all duration-200 hover:border-primary/40 hover:bg-background hover:text-foreground lg:flex"
+          className="absolute right-0 top-[65px] hidden h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-border/80 bg-card/95 text-muted-foreground shadow-[0_16px_40px_-24px_hsl(var(--foreground)/0.8)] backdrop-blur-xl transition-all duration-200 hover:border-primary/40 hover:bg-background hover:text-foreground lg:flex"
           onClick={onToggleCollapse}
         >
           {collapsed ? (
