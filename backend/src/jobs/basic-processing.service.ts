@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
 import { ImagePreprocessingService } from './image-preprocessing.service';
+import { OcrService } from './ocr.service';
 import type { ImageProcessorJob } from './processing-queue.service';
 
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
@@ -31,6 +32,7 @@ type JobWithFiles = Prisma.SortingJobGetPayload<{
 type ProcessResult = {
   outputBuffer: Buffer;
   pageCount: number;
+  ocrBuffer?: Buffer;
 };
 
 @Injectable()
@@ -39,6 +41,7 @@ export class BasicProcessingService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly imagePreprocessing: ImagePreprocessingService,
+    private readonly ocr: OcrService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -114,6 +117,11 @@ export class BasicProcessingService {
       const outputKey = `output/${payload.userId}/${payload.jobId}/${outputName}`;
       const originalBuffer = await this.storage.download(file.originalPath);
       const result = await this.processFile(originalBuffer, originalName);
+      const ocrText = await this.ocr.extractText(
+        originalBuffer,
+        originalName,
+        result.ocrBuffer,
+      );
       const storedOutputKey = await this.storage.upload(
         outputKey,
         result.outputBuffer,
@@ -127,6 +135,7 @@ export class BasicProcessingService {
           processedName: outputName,
           processedPath: storedOutputKey,
           outputPdfPath: storedOutputKey,
+          ocrText,
           pageCount: result.pageCount,
           errorMessage: null,
         },
@@ -284,6 +293,7 @@ export class BasicProcessingService {
           return {
             outputBuffer: pdfBuffer,
             pageCount: 1,
+            ocrBuffer: preparedBuffer,
           };
         }
       }
@@ -302,6 +312,7 @@ export class BasicProcessingService {
     return {
       outputBuffer: bestResult,
       pageCount: 1,
+      ocrBuffer: preparedBuffer,
     };
   }
 

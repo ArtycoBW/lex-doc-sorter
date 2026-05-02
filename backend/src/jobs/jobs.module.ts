@@ -7,6 +7,7 @@ import { ImagePreprocessingService } from './image-preprocessing.service';
 import { ImageProcessorProcessor } from './image-processor.processor';
 import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
+import { OcrService } from './ocr.service';
 import {
   IMAGE_PROCESSOR_QUEUE,
   ProcessingQueueService,
@@ -31,6 +32,7 @@ import {
     JobsService,
     BasicProcessingService,
     ImagePreprocessingService,
+    OcrService,
     ProcessingQueueService,
     ImageProcessorProcessor,
   ],
