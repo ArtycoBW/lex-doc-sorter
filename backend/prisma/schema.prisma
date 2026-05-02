@@ -21,6 +21,11 @@ enum JobStatus {
   FAILED
 }
 
+enum ProcessingMode {
+  QUICK
+  SMART
+}
+
 enum FileStatus {
   PENDING
   PROCESSING
@@ -76,8 +81,11 @@ model SortingJob {
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   status         JobStatus       @default(PENDING)
+  processingMode ProcessingMode  @default(SMART)
   totalFiles     Int             @default(0)
   processedFiles Int             @default(0)
+  tokensReserved Int             @default(0)
+  tokensUsed     Int             @default(0)
   outputZipPath  String?
   registryPath   String?
   errorMessage   String?

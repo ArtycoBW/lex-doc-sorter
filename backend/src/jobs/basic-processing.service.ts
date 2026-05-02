@@ -4,11 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { FileStatus, JobStatus, Prisma } from '@prisma/client';
+import { FileStatus, JobStatus, Prisma, ProcessingMode } from '@prisma/client';
 import archiver = require('archiver');
 import { Response } from 'express';
 import { PDFDocument } from 'pdf-lib';
 import * as path from 'path';
+import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { DocumentDetectionService } from './document-detection.service';
@@ -50,6 +51,7 @@ export class BasicProcessingService {
     private readonly documentDetection: DocumentDetectionService,
     private readonly pdfBuilder: PdfBuilderService,
     private readonly naming: NamingService,
+    private readonly billing: BillingService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -72,7 +74,11 @@ export class BasicProcessingService {
     };
   }
 
-  async prepareJobForProcessing(userId: string, jobId: string) {
+  async prepareJobForProcessing(
+    userId: string,
+    jobId: string,
+    mode: ProcessingMode = ProcessingMode.SMART,
+  ) {
     const job = await this.getOwnedJob(userId, jobId);
 
     if (job.files.length === 0) {
@@ -83,12 +89,23 @@ export class BasicProcessingService {
       throw new BadRequestException('Задание уже обрабатывается');
     }
 
+    const usage = await this.billing.chargeProcessingUsage(userId, {
+      jobId: job.id,
+      fileCount: job.files.length,
+      mode,
+    });
+
     await this.prisma.$transaction([
       this.prisma.sortingJob.update({
         where: { id: job.id },
         data: {
           status: JobStatus.PROCESSING,
+          processingMode: mode,
           processedFiles: 0,
+          tokensReserved: usage.estimatedTokens,
+          tokensUsed: { increment: usage.estimatedTokens },
+          outputZipPath: null,
+          registryPath: null,
           errorMessage: null,
         },
       }),
@@ -98,6 +115,13 @@ export class BasicProcessingService {
           status: FileStatus.PROCESSING,
           processedPath: null,
           outputPdfPath: null,
+          ocrText: null,
+          docType: null,
+          docDate: null,
+          docNumber: null,
+          docParties: [],
+          docSummary: null,
+          groupIndex: null,
           errorMessage: null,
         },
       }),
@@ -167,11 +191,14 @@ export class BasicProcessingService {
       const outputKey = `output/${payload.userId}/${payload.jobId}/${outputName}`;
       const originalBuffer = await this.storage.download(file.originalPath);
       const result = await this.processFile(originalBuffer, originalName);
-      const ocrText = await this.ocr.extractText(
-        originalBuffer,
-        originalName,
-        result.ocrBuffer,
-      );
+      const ocrText =
+        file.job.processingMode === ProcessingMode.SMART
+          ? await this.ocr.extractText(
+              originalBuffer,
+              originalName,
+              result.ocrBuffer,
+            )
+          : null;
       const storedOutputKey = await this.storage.upload(
         outputKey,
         result.outputBuffer,
@@ -322,7 +349,7 @@ export class BasicProcessingService {
     this.finalizingJobs.add(jobId);
 
     try {
-      if (!hasFailedFiles) {
+      if (!hasFailedFiles && job.processingMode === ProcessingMode.SMART) {
         await this.documentDetection.detectJobGroups(job.id);
         await this.pdfBuilder.buildSearchableGroupPdfs(job.userId, job.id);
         await this.naming.applySmartNames(job.id);

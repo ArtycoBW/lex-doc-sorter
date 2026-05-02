@@ -133,6 +133,8 @@ export type JobStatus =
   | 'COMPLETED'
   | 'FAILED';
 
+export type ProcessingMode = 'QUICK' | 'SMART';
+
 export type FileStatus =
   | 'PENDING'
   | 'PROCESSING'
@@ -168,8 +170,11 @@ export type SortingJob = {
   id: string;
   userId: string;
   status: JobStatus;
+  processingMode: ProcessingMode;
   totalFiles: number;
   processedFiles: number;
+  tokensReserved: number;
+  tokensUsed: number;
   outputZipPath: string | null;
   registryPath: string | null;
   errorMessage: string | null;
@@ -334,6 +339,7 @@ type RawBillingTransactionResponse = {
   type: BillingTransactionType;
   tokenDelta: number;
   usageTokens: number;
+  amount?: number | null;
   description: string | null;
   balanceAfter: number;
   createdAt: string;
@@ -384,12 +390,11 @@ export type PaymentDetails = {
     | null;
 };
 
-const PUBLIC_TARIFF_PLAN_CODES = new Set(['pro_monthly']);
+const PUBLIC_TARIFF_PLAN_CODES = new Set(['starter', 'pro_monthly', 'team_monthly']);
 const PUBLIC_TOKEN_PACKAGE_CODES = new Set([
-  'packs_10',
-  'packs_20',
-  'packs_50',
-  'packs_100',
+  'tokens_100k',
+  'tokens_500k',
+  'tokens_2m',
 ]);
 
 function normalizeTariffDisplayName(code: string, name: string) {
@@ -549,7 +554,7 @@ function mapBillingTransaction(
         : raw.usageTokens > 0
           ? raw.usageTokens
           : null,
-    amount: raw.payment?.amount ?? null,
+    amount: raw.amount ?? raw.payment?.amount ?? null,
     description: raw.description,
     balanceAfter: raw.balanceAfter,
     createdAt: raw.createdAt,
@@ -979,10 +984,10 @@ export const api = {
   getJobProgress: (jobId: string) =>
     request<JobProgress>(`/jobs/${jobId}/progress`),
 
-  startJobProcessing: (jobId: string) =>
+  startJobProcessing: (jobId: string, mode: ProcessingMode = "SMART") =>
     request<SortingJob>(`/jobs/${jobId}/start`, {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({ mode }),
     }),
 
   cancelJobProcessing: (jobId: string) =>

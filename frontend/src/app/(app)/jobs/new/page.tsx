@@ -5,19 +5,22 @@ import { useRouter } from "next/navigation"
 import {
   Camera,
   CheckCircle2,
+  Coins,
   FileText,
   FolderOpen,
   ImageIcon,
   Loader2,
+  Play,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   UploadCloud,
   X,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { REQUEST_ABORTED_ERROR, api } from "@/lib/api"
+import { REQUEST_ABORTED_ERROR, api, type ProcessingMode } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const ACCEPTED_MIME_TYPES = new Set([
@@ -30,6 +33,10 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024
 const DRAFT_DB_NAME = "lex-doc-upload-drafts"
 const DRAFT_STORE_NAME = "drafts"
 const ACTIVE_DRAFT_ID = "active-job-upload"
+const PROCESSING_TOKEN_COST: Record<ProcessingMode, number> = {
+  QUICK: 1_500,
+  SMART: 6_000,
+}
 
 type SelectedFile = {
   id: string
@@ -50,6 +57,10 @@ function formatSize(size: number) {
   }
 
   return `${Math.max(1, Math.round(size / 1024))} КБ`
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("ru-RU").format(value)
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -149,6 +160,7 @@ export default function NewJobPage() {
   const currentJobIdRef = useRef<string | null>(null)
   const filesRef = useRef<SelectedFile[]>([])
   const [files, setFiles] = useState<SelectedFile[]>([])
+  const [selectedMode, setSelectedMode] = useState<ProcessingMode>("SMART")
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [restoredDraft, setRestoredDraft] = useState(false)
@@ -222,7 +234,7 @@ export default function NewJobPage() {
           setPhase("processing")
           const processingJob =
             existingJob.status === "PENDING"
-              ? await api.startJobProcessing(jobId)
+              ? await api.startJobProcessing(jobId, selectedMode)
               : existingJob
 
           await clearDraft()
@@ -246,7 +258,7 @@ export default function NewJobPage() {
       )
 
       setPhase("processing")
-      const processingJob = await api.startJobProcessing(uploadedJob.id)
+      const processingJob = await api.startJobProcessing(uploadedJob.id, selectedMode)
       await clearDraft()
       router.push(`/jobs/${processingJob.id}`)
     } catch (error: unknown) {
@@ -404,6 +416,57 @@ export default function NewJobPage() {
           {error}
         </div>
       )}
+
+      <section className="grid gap-3 md:grid-cols-2">
+        {[
+          {
+            value: "QUICK" as ProcessingMode,
+            title: "Быстрый режим",
+            description: "Каждый файл станет отдельным сжатым PDF без AI-разметки.",
+            icon: Play,
+          },
+          {
+            value: "SMART" as ProcessingMode,
+            title: "Умный режим",
+            description: "OCR, авторазделение документов, названия по маске и реестр.",
+            icon: Sparkles,
+          },
+        ].map((mode) => {
+          const active = selectedMode === mode.value
+          const Icon = mode.icon
+          const estimatedTokens = files.length * PROCESSING_TOKEN_COST[mode.value]
+
+          return (
+            <button
+              key={mode.value}
+              type="button"
+              disabled={uploading}
+              className={cn(
+                "rounded-2xl border p-4 text-left transition-colors",
+                active
+                  ? "border-primary/55 bg-primary/10"
+                  : "border-border bg-card/70 hover:border-primary/35 hover:bg-muted/35",
+                uploading && "cursor-default opacity-75",
+              )}
+              onClick={() => setSelectedMode(mode.value)}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {mode.title}
+                </span>
+                <span className="flex items-center gap-1 rounded-full border border-border bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
+                  <Coins className="h-3.5 w-3.5" />
+                  {formatNumber(estimatedTokens)}
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{mode.description}</p>
+            </button>
+          )
+        })}
+      </section>
 
       <section
         className={cn(

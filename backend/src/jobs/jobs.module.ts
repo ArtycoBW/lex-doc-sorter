@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { BillingModule } from '../billing/billing.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { BasicProcessingService } from './basic-processing.service';
@@ -19,6 +20,7 @@ import { RegistryService } from './registry.service';
 
 @Module({
   imports: [
+    BillingModule,
     PrismaModule,
     StorageModule,
     BullModule.forRoot({

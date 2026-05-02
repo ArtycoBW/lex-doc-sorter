@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BillingTransactionType, Prisma, UserRole } from '@prisma/client';
+import { DEMO_DAILY_TOKEN_LIMIT } from '../billing/billing.defaults';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -250,14 +251,19 @@ export class UsersService {
   }
 
   private serializeUser(user: SelectedUser) {
-    const isUnlimited = user.role === UserRole.ADMIN || user.role === UserRole.PRO;
-    const dailyLimit = user.role === UserRole.DEMO ? 50_000 : null;
+    const isAdmin = user.role === UserRole.ADMIN;
+    const isPro = user.role === UserRole.PRO;
+    const dailyLimit = isAdmin
+      ? null
+      : isPro
+        ? 1_500_000
+        : DEMO_DAILY_TOKEN_LIMIT;
     const trialEndsAt = new Date(user.createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     return {
       ...user,
       access: {
-        mode: isUnlimited ? 'UNLIMITED' : 'TRIAL',
+        mode: isAdmin ? 'UNLIMITED' : isPro ? 'PAID' : 'TRIAL',
         trialActive: user.role === UserRole.DEMO,
         trialEndsAt: user.role === UserRole.DEMO ? trialEndsAt.toISOString() : null,
         dailyLimit,
@@ -265,12 +271,12 @@ export class UsersService {
         tokensRemainingToday: dailyLimit,
         sectionScope: 'ALL',
         extraTokenBalance: user.tokenBalance,
-        currentTariff: isUnlimited
+        currentTariff: user.role !== UserRole.DEMO
           ? {
-              subscriptionId: 'mock-unlimited',
-              code: user.role,
-              name: user.role === UserRole.ADMIN ? 'Администратор' : 'Pro',
-              dailyTokenLimit: null,
+              subscriptionId: `${user.role.toLowerCase()}-access`,
+              code: user.role === UserRole.ADMIN ? 'ADMIN' : 'pro_monthly',
+              name: user.role === UserRole.ADMIN ? 'Администратор' : 'Профессиональный',
+              dailyTokenLimit: dailyLimit,
               sectionScope: 'ALL',
               startsAt: user.createdAt.toISOString(),
               endsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),

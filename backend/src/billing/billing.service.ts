@@ -1,7 +1,30 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { BillingTransactionType, UserRole } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  BillingTransactionType,
+  ProcessingMode,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { MOCK_TARIFFS, MOCK_TOKEN_PACKAGES } from './billing.defaults';
+import {
+  DEMO_DAILY_TOKEN_LIMIT,
+  PROCESSING_TOKEN_COST,
+  TARIFF_PLANS,
+  TOKEN_PACKAGES,
+} from './billing.defaults';
+
+type BillingUser = {
+  id: string;
+  role: UserRole;
+  tokenBalance: number;
+  createdAt: Date;
+};
+
+type PaymentTargetType = 'TARIFF_PLAN' | 'TOKEN_PACKAGE';
 
 @Injectable()
 export class BillingService {
@@ -22,16 +45,18 @@ export class BillingService {
       throw new NotFoundException('Пользователь не найден');
     }
 
+    const tokensUsedToday = await this.getTokensUsedToday(user.id);
+
     return {
       userId: user.id,
       tokenBalance: user.tokenBalance,
-      access: this.buildAccessSummary(user),
+      access: this.buildAccessSummary(user, tokensUsedToday),
     };
   }
 
   getTariffPlans() {
     const now = new Date().toISOString();
-    return MOCK_TARIFFS.map((item) => ({
+    return TARIFF_PLANS.map((item) => ({
       ...item,
       createdAt: now,
       updatedAt: now,
@@ -40,7 +65,7 @@ export class BillingService {
 
   getTokenPackages() {
     const now = new Date().toISOString();
-    return MOCK_TOKEN_PACKAGES.map((item) => ({
+    return TOKEN_PACKAGES.map((item) => ({
       ...item,
       createdAt: now,
       updatedAt: now,
@@ -55,57 +80,137 @@ export class BillingService {
     });
   }
 
-  async createMockPayment(userId: string, payload: {
-    targetType: 'TARIFF_PLAN' | 'TOKEN_PACKAGE';
+  estimateJobTokens(fileCount: number, mode: ProcessingMode) {
+    return fileCount * PROCESSING_TOKEN_COST[mode];
+  }
+
+  async assertProcessingAllowed(
+    userId: string,
+    fileCount: number,
+    mode: ProcessingMode,
+  ) {
+    const context = await this.getAccessContext(userId);
+    const estimatedTokens = this.estimateJobTokens(fileCount, mode);
+    const availableTokens = context.isUnlimited
+      ? Number.POSITIVE_INFINITY
+      : context.tokensRemainingToday + context.user.tokenBalance;
+
+    if (estimatedTokens > availableTokens) {
+      const deficit = estimatedTokens - availableTokens;
+      throw new ForbiddenException(
+        `Недостаточно токенов для обработки. Нужно ${this.formatNumber(
+          estimatedTokens,
+        )}, доступно ${this.formatNumber(availableTokens)}. Не хватает ${this.formatNumber(
+          deficit,
+        )}.`,
+      );
+    }
+
+    return {
+      estimatedTokens,
+      tokensRemainingToday: context.tokensRemainingToday,
+      extraTokenBalance: context.user.tokenBalance,
+      isUnlimited: context.isUnlimited,
+    };
+  }
+
+  async chargeProcessingUsage(
+    userId: string,
+    payload: {
+      jobId: string;
+      fileCount: number;
+      mode: ProcessingMode;
+    },
+  ) {
+    const context = await this.getAccessContext(userId);
+    const estimatedTokens = this.estimateJobTokens(payload.fileCount, payload.mode);
+
+    if (!context.isUnlimited) {
+      const availableTokens =
+        context.tokensRemainingToday + context.user.tokenBalance;
+      if (estimatedTokens > availableTokens) {
+        throw new ForbiddenException(
+          `Недостаточно токенов для обработки. Нужно ${this.formatNumber(
+            estimatedTokens,
+          )}, доступно ${this.formatNumber(availableTokens)}.`,
+        );
+      }
+    }
+
+    const includedTokens = context.isUnlimited
+      ? estimatedTokens
+      : Math.min(estimatedTokens, context.tokensRemainingToday);
+    const packageTokens = Math.max(estimatedTokens - includedTokens, 0);
+    const transactionType =
+      packageTokens > 0
+        ? BillingTransactionType.PACKAGE_USAGE
+        : context.user.role === UserRole.DEMO
+          ? BillingTransactionType.TRIAL_USAGE
+          : BillingTransactionType.ALLOWANCE_USAGE;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = packageTokens
+        ? await tx.user.update({
+            where: { id: userId },
+            data: { tokenBalance: { decrement: packageTokens } },
+            select: { tokenBalance: true },
+          })
+        : await tx.user.findUniqueOrThrow({
+            where: { id: userId },
+            select: { tokenBalance: true },
+          });
+
+      await tx.billingTransaction.create({
+        data: {
+          userId,
+          type: transactionType,
+          tokenDelta: packageTokens > 0 ? -packageTokens : 0,
+          usageTokens: estimatedTokens,
+          description: `Обработка задания ${payload.jobId.slice(0, 8)}: ${
+            payload.mode === ProcessingMode.SMART ? 'умный режим' : 'быстрый режим'
+          }, ${payload.fileCount} файлов`,
+          balanceAfter: user.tokenBalance,
+        },
+      });
+
+      return {
+        estimatedTokens,
+        packageTokens,
+        balanceAfter: user.tokenBalance,
+      };
+    });
+
+    return result;
+  }
+
+  async createPayment(userId: string, payload: {
+    targetType: PaymentTargetType;
     targetCode: string;
     quantity?: number;
   }) {
     const target =
       payload.targetType === 'TOKEN_PACKAGE'
-        ? MOCK_TOKEN_PACKAGES.find((item) => item.code === payload.targetCode)
-        : MOCK_TARIFFS.find((item) => item.code === payload.targetCode);
+        ? TOKEN_PACKAGES.find((item) => item.code === payload.targetCode)
+        : TARIFF_PLANS.find((item) => item.code === payload.targetCode);
 
     if (!target) {
-      throw new BadRequestException('Мок-пакет не найден');
+      throw new BadRequestException('Пакет или тариф не найден');
     }
 
+    const quantity = Math.max(payload.quantity ?? 1, 1);
     const tokenAmount =
-      'tokenAmount' in target ? target.tokenAmount * Math.max(payload.quantity ?? 1, 1) : 0;
-
-    const user = tokenAmount
-      ? await this.prisma.user.update({
-          where: { id: userId },
-          data: { tokenBalance: { increment: tokenAmount } },
-          select: { tokenBalance: true },
-        })
-      : await this.prisma.user.findUniqueOrThrow({
-          where: { id: userId },
-          select: { tokenBalance: true },
-        });
-
-    if (tokenAmount) {
-      await this.prisma.billingTransaction.create({
-        data: {
-          userId,
-          type: BillingTransactionType.PAYMENT_TOPUP,
-          tokenDelta: tokenAmount,
-          description: `Мок-пополнение: ${target.name}`,
-          balanceAfter: user.tokenBalance,
-          amount: target.price,
-          currency: target.currency,
-        },
-      });
-    }
+      'tokenAmount' in target ? target.tokenAmount * quantity : 0;
+    const amount = target.price * quantity;
 
     return {
-      id: `mock_${Date.now()}`,
+      id: `pay_${Date.now()}_${userId.slice(0, 6)}`,
       externalOrderId: null,
       formUrl: null,
-      status: 'SUCCEEDED',
-      amount: target.price,
+      status: 'PENDING',
+      amount,
       currency: target.currency,
-      paidAt: new Date().toISOString(),
-      processedAt: new Date().toISOString(),
+      paidAt: null,
+      processedAt: null,
       target: {
         type: payload.targetType,
         code: target.code,
@@ -119,31 +224,88 @@ export class BillingService {
     role: UserRole;
     tokenBalance: number;
     createdAt: Date;
-  }) {
-    const isUnlimited = user.role === UserRole.ADMIN || user.role === UserRole.PRO;
-    const dailyLimit = user.role === UserRole.DEMO ? 50_000 : null;
+  }, tokensUsedToday = 0) {
+    const isAdmin = user.role === UserRole.ADMIN;
+    const isPro = user.role === UserRole.PRO;
+    const dailyLimit = isAdmin
+      ? null
+      : isPro
+        ? 1_500_000
+        : DEMO_DAILY_TOKEN_LIMIT;
+    const tokensRemainingToday =
+      dailyLimit == null ? null : Math.max(dailyLimit - tokensUsedToday, 0);
     const trialEndsAt = new Date(user.createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     return {
-      mode: isUnlimited ? 'UNLIMITED' : 'TRIAL',
+      mode: isAdmin ? 'UNLIMITED' : isPro ? 'PAID' : 'TRIAL',
       trialActive: user.role === UserRole.DEMO,
       trialEndsAt: user.role === UserRole.DEMO ? trialEndsAt.toISOString() : null,
       dailyLimit,
-      tokensUsedToday: 0,
-      tokensRemainingToday: dailyLimit,
+      tokensUsedToday,
+      tokensRemainingToday,
       sectionScope: 'ALL',
       extraTokenBalance: user.tokenBalance,
-      currentTariff: isUnlimited
+      currentTariff: user.role !== UserRole.DEMO
         ? {
-            subscriptionId: 'mock-unlimited',
-            code: user.role,
-            name: user.role === UserRole.ADMIN ? 'Администратор' : 'Pro',
-            dailyTokenLimit: null,
+            subscriptionId: `${user.role.toLowerCase()}-access`,
+            code: user.role === UserRole.ADMIN ? 'ADMIN' : 'pro_monthly',
+            name: user.role === UserRole.ADMIN ? 'Администратор' : 'Профессиональный',
+            dailyTokenLimit: dailyLimit,
             sectionScope: 'ALL',
             startsAt: user.createdAt.toISOString(),
             endsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           }
-        : null,
+          : null,
     };
+  }
+
+  private async getAccessContext(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        tokenBalance: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    const tokensUsedToday = await this.getTokensUsedToday(user.id);
+    const access = this.buildAccessSummary(user, tokensUsedToday);
+
+    return {
+      user: user as BillingUser,
+      access,
+      isUnlimited: user.role === UserRole.ADMIN,
+      tokensRemainingToday: access.tokensRemainingToday ?? Number.POSITIVE_INFINITY,
+    };
+  }
+
+  private async getTokensUsedToday(userId: string) {
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+
+    const aggregate = await this.prisma.billingTransaction.aggregate({
+      where: {
+        userId,
+        createdAt: { gte: since },
+        usageTokens: { gt: 0 },
+      },
+      _sum: { usageTokens: true },
+    });
+
+    return aggregate._sum.usageTokens ?? 0;
+  }
+
+  private formatNumber(value: number) {
+    if (!Number.isFinite(value)) {
+      return 'без ограничений';
+    }
+
+    return new Intl.NumberFormat('ru-RU').format(Math.max(0, Math.round(value)));
   }
 }

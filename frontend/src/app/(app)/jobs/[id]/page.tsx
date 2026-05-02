@@ -6,6 +6,7 @@ import {
   Archive,
   Ban,
   CheckCircle2,
+  Coins,
   FileDown,
   FileText,
   Loader2,
@@ -18,8 +19,21 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api, type FileStatus, type JobStatus, type ProcessedFile, type SortingJob } from "@/lib/api"
+import {
+  api,
+  type BillingSummary,
+  type FileStatus,
+  type JobStatus,
+  type ProcessedFile,
+  type ProcessingMode,
+  type SortingJob,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
+
+const PROCESSING_TOKEN_COST: Record<ProcessingMode, number> = {
+  QUICK: 1_500,
+  SMART: 6_000,
+}
 
 const statusLabels: Record<JobStatus, string> = {
   PENDING: "Файлы загружены",
@@ -54,6 +68,23 @@ const docTypeLabels: Record<string, string> = {
 
 const activeStatuses = new Set<JobStatus>(["UPLOADING", "PROCESSING"])
 
+const modeOptions: Array<{
+  value: ProcessingMode
+  title: string
+  description: string
+}> = [
+  {
+    value: "QUICK",
+    title: "Быстрый режим",
+    description: "Конвертация, сжатие и отдельный PDF для каждого файла без AI-разметки.",
+  },
+  {
+    value: "SMART",
+    title: "Умный режим",
+    description: "OCR, авторазделение документов, имена по маске и реестр для подачи.",
+  },
+]
+
 type DocumentGroup = {
   id: string
   index: number
@@ -69,6 +100,11 @@ function formatSize(size: number) {
   }
 
   return `${Math.max(1, Math.round(size / 1024))} КБ`
+}
+
+function formatNumber(value: number) {
+  if (!Number.isFinite(value)) return "без ограничений"
+  return new Intl.NumberFormat("ru-RU").format(Math.max(0, Math.round(value)))
 }
 
 function formatDate(value: string) {
@@ -142,6 +178,8 @@ export default function JobDetailsPage() {
   const params = useParams<{ id: string }>()
   const jobId = params.id
   const [job, setJob] = useState<SortingJob | null>(null)
+  const [billing, setBilling] = useState<BillingSummary | null>(null)
+  const [selectedMode, setSelectedMode] = useState<ProcessingMode>("SMART")
   const [editingFileId, setEditingFileId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
   const [loading, setLoading] = useState(true)
@@ -150,7 +188,6 @@ export default function JobDetailsPage() {
   const [canceling, setCanceling] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [registryDownloading, setRegistryDownloading] = useState<"xlsx" | "docx" | null>(null)
-  const [applyingNames, setApplyingNames] = useState(false)
   const [error, setError] = useState("")
 
   const loadJob = useCallback(
@@ -163,10 +200,14 @@ export default function JobDetailsPage() {
         setError("")
       }
 
-      try {
-        setJob(await api.getJob(jobId))
-      } catch (error: unknown) {
-        setError(getErrorMessage(error, "Не удалось загрузить задание"))
+    try {
+      const loadedJob = await api.getJob(jobId)
+      setJob(loadedJob)
+      if (!activeStatuses.has(loadedJob.status)) {
+        setSelectedMode(loadedJob.processingMode || "SMART")
+      }
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Не удалось загрузить задание"))
       } finally {
         if (!options?.silent) {
           setLoading(false)
@@ -176,9 +217,18 @@ export default function JobDetailsPage() {
     [jobId],
   )
 
+  const loadBilling = useCallback(async () => {
+    try {
+      setBilling(await api.getBillingSummary())
+    } catch {
+      setBilling(null)
+    }
+  }, [])
+
   useEffect(() => {
     void loadJob()
-  }, [loadJob])
+    void loadBilling()
+  }, [loadBilling, loadJob])
 
   useEffect(() => {
     if (!job || !activeStatuses.has(job.status)) {
@@ -200,10 +250,28 @@ export default function JobDetailsPage() {
     return Math.round((job.processedFiles / job.totalFiles) * 100)
   }, [job?.processedFiles, job?.totalFiles])
 
+  const selectedModeCost = useMemo(() => {
+    const fileCount = job?.files.length || job?.totalFiles || 0
+    return fileCount * PROCESSING_TOKEN_COST[selectedMode]
+  }, [job?.files.length, job?.totalFiles, selectedMode])
+
+  const availableTokens = useMemo(() => {
+    if (!billing) return null
+    if (billing.dailyLimit === null) return Number.POSITIVE_INFINITY
+
+    return (billing.tokensRemainingToday ?? 0) + billing.tokenPackageBalance
+  }, [billing])
+
+  const hasEnoughTokens =
+    availableTokens === null ||
+    !Number.isFinite(availableTokens) ||
+    selectedModeCost <= availableTokens
+
   const canProcess =
     Boolean(job?.files.length) &&
     job?.status !== "PROCESSING" &&
-    job?.status !== "UPLOADING"
+    job?.status !== "UPLOADING" &&
+    hasEnoughTokens
   const canCancel =
     Boolean(job?.files.length) &&
     (job?.status === "PROCESSING" ||
@@ -214,6 +282,10 @@ export default function JobDetailsPage() {
     () => getDocumentGroups(job?.files || []),
     [job?.files],
   )
+  const readyPdfCount =
+    job?.status === "COMPLETED"
+      ? documentGroups.filter((group) => Boolean(group.representative.outputPdfPath)).length
+      : job?.processedFiles || 0
   const hasSmartMarkup = useMemo(
     () =>
       Boolean(
@@ -223,9 +295,9 @@ export default function JobDetailsPage() {
       ),
     [job?.files],
   )
-  const canDownloadRegistry = Boolean(canDownload && hasSmartMarkup)
+  const canDownloadRegistry = Boolean(canDownload)
   const needsSmartRebuild = Boolean(
-    job?.status === "COMPLETED" && job.files.length > 1 && !hasSmartMarkup,
+    job?.status === "COMPLETED" && job.files.length > 1 && job.processingMode !== "SMART",
   )
 
   const startEdit = (file: ProcessedFile) => {
@@ -272,10 +344,12 @@ export default function JobDetailsPage() {
     setError("")
 
     try {
-      setJob(await api.startJobProcessing(job.id))
+      setJob(await api.startJobProcessing(job.id, selectedMode))
+      await loadBilling()
     } catch (error: unknown) {
       setError(getErrorMessage(error, "Не удалось обработать файлы"))
       await loadJob({ silent: true })
+      await loadBilling()
     } finally {
       setProcessing(false)
     }
@@ -314,25 +388,6 @@ export default function JobDetailsPage() {
       setError(getErrorMessage(error, "Не удалось скачать архив"))
     } finally {
       setDownloading(false)
-    }
-  }
-
-  const applySmartNames = async () => {
-    if (!job) {
-      return
-    }
-
-    setApplyingNames(true)
-    setError("")
-
-    try {
-      setJob(await api.applyJobSmartNames(job.id))
-      setEditingFileId(null)
-      setEditingName("")
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, "Не удалось применить имена"))
-    } finally {
-      setApplyingNames(false)
     }
   }
 
@@ -397,131 +452,121 @@ export default function JobDetailsPage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-card/72">
-        <div className="grid gap-0 lg:grid-cols-[1fr_auto]">
-          <div className="p-5">
-            <div className="inline-flex rounded-xl border border-border bg-background/58 p-1">
-              <button
-                type="button"
-                className="flex min-h-10 items-center justify-center gap-2 rounded-lg bg-card px-4 text-sm font-medium"
-              >
-                <Play className="h-4 w-4" />
-                Быстрый режим
-              </button>
-              <button
-                type="button"
-                disabled
-                className="flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-muted-foreground opacity-60"
-              >
-                <Sparkles className="h-4 w-4" />
-                Умный режим
-              </button>
-            </div>
+      <section className="rounded-[22px] border border-border bg-card/72 p-4 sm:p-5">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="grid gap-3 md:grid-cols-2">
+            {modeOptions.map((mode) => {
+              const active = selectedMode === mode.value
+              const locked = activeStatuses.has(job.status)
+              const Icon = mode.value === "SMART" ? Sparkles : Play
+
+              return (
+                <button
+                  key={mode.value}
+                  type="button"
+                  disabled={locked}
+                  className={cn(
+                    "group min-h-[116px] rounded-2xl border p-4 text-left transition-colors",
+                    active
+                      ? "border-primary/55 bg-primary/10 text-foreground"
+                      : "border-border bg-background/45 text-muted-foreground hover:border-primary/35 hover:bg-muted/35 hover:text-foreground",
+                    locked && "cursor-default opacity-80",
+                  )}
+                  onClick={() => setSelectedMode(mode.value)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-xl border",
+                          active
+                            ? "border-primary/35 bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      {mode.title}
+                    </span>
+                    <span className="rounded-full border border-border bg-card/70 px-2.5 py-1 text-xs text-muted-foreground">
+                      {formatNumber((job.files.length || job.totalFiles) * PROCESSING_TOKEN_COST[mode.value])}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    {mode.description}
+                  </p>
+                </button>
+              )
+            })}
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-border p-5 sm:flex-row lg:border-l lg:border-t-0">
-            <Button
-              type="button"
-              className="gap-2"
-              disabled={!canProcess || processing}
-              onClick={() => void startProcessing()}
-            >
-              {processing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
+          <div className="flex flex-col justify-between gap-3 rounded-2xl border border-border bg-background/45 p-4 xl:w-[23rem]">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Coins className="h-4 w-4 text-primary" />
+                Стоимость обработки
+              </div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatNumber(selectedModeCost)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Доступно: {availableTokens === null ? "проверяем баланс" : formatNumber(availableTokens)}
+              </div>
+              {!hasEnoughTokens && (
+                <div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  Для этого задания нужно пополнить баланс или уменьшить пакет.
+                </div>
               )}
-              {job.status === "COMPLETED" ? "Пересобрать" : "Обработать"}
-            </Button>
-            {canCancel && (
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
               <Button
                 type="button"
-                variant="outline"
                 className="gap-2"
-                disabled={canceling}
-                onClick={() => void cancelProcessing()}
+                disabled={!canProcess || processing}
+                onClick={() => void startProcessing()}
               >
-                {canceling ? (
+                {processing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Ban className="h-4 w-4" />
+                  <Play className="h-4 w-4" />
                 )}
-                Отменить
+                {job.status === "COMPLETED" ? "Пересобрать пакет" : "Запустить обработку"}
               </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              disabled={!canDownloadRegistry || applyingNames}
-              onClick={() => void applySmartNames()}
-            >
-              {applyingNames ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
+              {canCancel && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={canceling}
+                  onClick={() => void cancelProcessing()}
+                >
+                  {canceling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Ban className="h-4 w-4" />
+                  )}
+                  Отменить
+                </Button>
               )}
-              Применить имена
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              disabled={!canDownloadRegistry || registryDownloading !== null}
-              onClick={() => void downloadRegistry("xlsx")}
-            >
-              {registryDownloading === "xlsx" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4" />
-              )}
-              Реестр XLSX
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              disabled={!canDownloadRegistry || registryDownloading !== null}
-              onClick={() => void downloadRegistry("docx")}
-            >
-              {registryDownloading === "docx" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4" />
-              )}
-              Реестр DOCX
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              disabled={!canDownload || downloading}
-              onClick={() => void downloadArchive()}
-            >
-              {downloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Archive className="h-4 w-4" />
-              )}
-              Скачать всё
-            </Button>
+            </div>
           </div>
         </div>
 
-        <div className="grid border-t border-border sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
             ["Файлов", job.totalFiles],
-            ["PDF готово", job.processedFiles],
+            ["PDF готово", readyPdfCount],
             ["Прогресс", `${progress}%`],
           ].map(([label, value]) => (
-            <div key={label} className="border-b border-border p-5 sm:border-b-0 sm:border-r last:border-r-0">
+            <div key={label} className="rounded-2xl border border-border bg-background/45 p-4">
               <p className="text-sm text-muted-foreground">{label}</p>
               <p className="mt-2 text-2xl font-semibold">{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="p-5">
+        <div className="mt-5">
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all duration-300"
@@ -535,14 +580,59 @@ export default function JobDetailsPage() {
             <span>{statusLabels[job.status]}</span>
           </div>
         </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!canDownloadRegistry || registryDownloading !== null}
+            onClick={() => void downloadRegistry("xlsx")}
+          >
+            {registryDownloading === "xlsx" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            Реестр XLSX
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!canDownloadRegistry || registryDownloading !== null}
+            onClick={() => void downloadRegistry("docx")}
+          >
+            {registryDownloading === "docx" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            Реестр DOCX
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!canDownload || downloading}
+            onClick={() => void downloadArchive()}
+          >
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            Скачать всё
+          </Button>
+        </div>
       </section>
 
       {needsSmartRebuild && (
         <section className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-5 py-4 text-sm text-foreground">
-          <div className="font-medium">Задание обработано старым режимом</div>
+          <div className="font-medium">Пакет собран в быстром режиме</div>
           <p className="mt-1 max-w-3xl text-muted-foreground">
-            Для описи DOCX/XLSX нужно заново запустить обработку: система определит
-            границы документов, извлечёт метаданные и предложит имена по маске.
+            Для авторазделения документов, OCR и названий по маске запустите
+            пересборку в умном режиме. Быстрый режим оставляет каждый файл отдельным PDF.
           </p>
         </section>
       )}
@@ -560,7 +650,11 @@ export default function JobDetailsPage() {
             </p>
           </div>
           <Badge variant="outline" className="w-fit rounded-full px-3 py-1">
-            {hasSmartMarkup ? "Умная маска имён" : "Нужна пересборка"}
+            {hasSmartMarkup
+              ? "Умная маска имён"
+              : job.processingMode === "QUICK"
+                ? "Быстрый пакет"
+                : "Ожидает разметку"}
           </Badge>
         </div>
         <div className="divide-y divide-border">

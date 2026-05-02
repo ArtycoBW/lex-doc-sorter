@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import {
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   FolderOpen,
   LayoutDashboard,
   LogOut,
@@ -47,6 +48,7 @@ const navigation = [
   { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { href: "/jobs/new", label: "Новое задание", icon: Upload },
   { href: "/jobs", label: "Мои задания", icon: FolderOpen },
+  { href: "/billing", label: "Тариф и токены", icon: CreditCard },
   { href: "/profile", label: "Профиль", icon: User },
 ]
 

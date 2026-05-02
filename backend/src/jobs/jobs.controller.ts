@@ -20,6 +20,7 @@ import { mkdirSync } from 'fs';
 import * as path from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BasicProcessingService } from './basic-processing.service';
+import { StartProcessingDto } from './dto/start-processing.dto';
 import { UpdateFileNameDto } from './dto/update-file-name.dto';
 import { JobsService } from './jobs.service';
 import { NamingService } from './naming.service';
@@ -89,8 +90,12 @@ export class JobsController {
   }
 
   @Post(':id/start')
-  startBasicProcessing(@Req() req: any, @Param('id') jobId: string) {
-    return this.processingQueueService.enqueueJob(req.user.sub, jobId);
+  startBasicProcessing(
+    @Req() req: any,
+    @Param('id') jobId: string,
+    @Body() dto: StartProcessingDto,
+  ) {
+    return this.processingQueueService.enqueueJob(req.user.sub, jobId, dto.mode);
   }
 
   @Post(':id/cancel')

@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils"
 type AdminUser = Awaited<ReturnType<typeof api.getAdminUsers>>[number]
 type AdminFeedback = Awaited<ReturnType<typeof api.getAdminFeedback>>
 type AdminFeedbackItem = AdminFeedback["items"][number]
-type AdminTab = "analytics" | "users" | "feedback" | "tokens"
+type AdminTab = "analytics" | "users" | "feedback"
 
 const roleLabels: Record<AdminUser["role"], string> = {
   DEMO: "Демо",
@@ -79,7 +79,6 @@ const tabs: Array<{ id: AdminTab; label: string; icon: typeof BarChart3 }> = [
   { id: "analytics", label: "Аналитика", icon: BarChart3 },
   { id: "users", label: "Пользователи", icon: Users },
   { id: "feedback", label: "Обратная связь", icon: MessageSquareWarning },
-  { id: "tokens", label: "Токены", icon: Coins },
 ]
 
 function formatDate(value: string) {
@@ -384,7 +383,7 @@ export default function AdminPage() {
             Панель управления Lex-Doc
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Аналитика пилота, пользователи, токены и обратная связь без подключения реальной оплаты.
+            Операционная аналитика, управление пользователями и обратная связь по продукту.
           </p>
         </div>
 
@@ -561,10 +560,6 @@ export default function AdminPage() {
               savingId={savingId}
               onUpdate={updateFeedback}
             />
-          )}
-
-          {activeTab === "tokens" && overview && (
-            <TokensPanel overview={overview} />
           )}
         </>
       )}
@@ -792,69 +787,5 @@ function FeedbackPanel({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function TokensPanel({ overview }: { overview: AdminOverview }) {
-  return (
-    <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-      <Card className="border-border/70 bg-card/72">
-        <CardHeader className="border-b border-border/70 px-5 py-4">
-          <CardTitle className="text-base">Mock-тарифы и пакеты</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 p-5">
-          {[
-            ["Старт", "50 000 токенов в день", "Для пилотных разовых задач"],
-            ["Pro", "250 000 токенов в день", "Для регулярной обработки"],
-            ["Команда", "Без дневного лимита", "Заготовка под будущий биллинг"],
-          ].map(([name, limit, description]) => (
-            <div key={name} className="rounded-xl border border-border/70 bg-background/55 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium">{name}</div>
-                <Badge variant="outline" className="rounded-full border-border/70">
-                  мок
-                </Badge>
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">{limit}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{description}</div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/70 bg-card/72">
-        <CardHeader className="border-b border-border/70 px-5 py-4">
-          <CardTitle className="text-base">Последние начисления</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-border/70">
-            {overview.recentTokenTransactions.map((item) => (
-              <div key={item.id} className="grid gap-2 px-5 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{item.user.name || item.user.email}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {item.description || item.type} · {formatDate(item.createdAt)}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">
-                    +{formatNumber(item.tokenDelta)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    баланс {formatNumber(item.balanceAfter)}
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {!overview.recentTokenTransactions.length && (
-              <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                Начислений пока нет. Добавьте токены пользователю во вкладке пользователей.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </section>
   )
 }

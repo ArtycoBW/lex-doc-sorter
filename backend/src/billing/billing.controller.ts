@@ -40,7 +40,7 @@ export class PaymentsController {
     targetCode: string;
     quantity?: number;
   }) {
-    return this.billingService.createMockPayment(req.user.sub, body);
+    return this.billingService.createPayment(req.user.sub, body);
   }
 
   @Get(':id')
@@ -49,11 +49,11 @@ export class PaymentsController {
       id: paymentId,
       externalOrderId: null,
       formUrl: null,
-      status: 'SUCCEEDED',
+      status: 'PENDING',
       amount: 0,
       currency: 'RUB',
-      paidAt: new Date().toISOString(),
-      processedAt: new Date().toISOString(),
+      paidAt: null,
+      processedAt: null,
       target: null,
     };
   }

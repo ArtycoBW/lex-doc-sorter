@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { ProcessingMode } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { BasicProcessingService } from './basic-processing.service';
 
@@ -19,10 +20,15 @@ export class ProcessingQueueService {
     private readonly basicProcessing: BasicProcessingService,
   ) {}
 
-  async enqueueJob(userId: string, jobId: string) {
+  async enqueueJob(
+    userId: string,
+    jobId: string,
+    mode: ProcessingMode = ProcessingMode.SMART,
+  ) {
     const job = await this.basicProcessing.prepareJobForProcessing(
       userId,
       jobId,
+      mode,
     );
 
     await this.imageQueue.addBulk(

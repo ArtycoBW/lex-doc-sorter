@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { FileStatus } from '@prisma/client';
+import { FileStatus, ProcessingMode } from '@prisma/client';
 import {
   AlignmentType,
   Document,
@@ -52,7 +52,11 @@ export class RegistryService {
       (file) => file.groupIndex !== null || file.docType || file.docSummary,
     );
 
-    if (completedFiles.length > 1 && !hasSmartMarkup) {
+    if (
+      job.processingMode === ProcessingMode.SMART &&
+      completedFiles.length > 1 &&
+      !hasSmartMarkup
+    ) {
       throw new BadRequestException(
         'Для описи запустите обработку задания: система определит документы, даты и названия.',
       );
