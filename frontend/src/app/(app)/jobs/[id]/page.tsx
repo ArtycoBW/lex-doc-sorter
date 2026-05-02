@@ -295,13 +295,13 @@ export default function JobDetailsPage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-border bg-card/72 shadow-[0_24px_80px_-58px_hsl(var(--foreground)/0.45)]">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card/72">
         <div className="grid gap-0 lg:grid-cols-[1fr_auto]">
           <div className="p-5">
-            <div className="inline-flex rounded-lg border border-border bg-background/58 p-1">
+            <div className="inline-flex rounded-xl border border-border bg-background/58 p-1">
               <button
                 type="button"
-                className="flex min-h-10 items-center justify-center gap-2 rounded-md bg-card px-4 text-sm font-medium shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]"
+                className="flex min-h-10 items-center justify-center gap-2 rounded-lg bg-card px-4 text-sm font-medium"
               >
                 <Play className="h-4 w-4" />
                 Быстрый режим
@@ -393,15 +393,15 @@ export default function JobDetailsPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-card/72">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card/72">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold">Файлы задания</h2>
         </div>
         <div className="divide-y divide-border">
           {job.files.map((file) => (
-            <div key={file.id} className="px-5 py-4 transition-colors hover:bg-background/42">
+            <div key={file.id} className="px-5 py-4 transition-colors hover:bg-muted/28">
               <div className="grid gap-3 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                   <FileText className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -417,9 +417,20 @@ export default function JobDetailsPage() {
                     />
                   ) : (
                     <>
-                      <p className="truncate text-sm font-medium">
-                        {file.processedName || file.originalName}
-                      </p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label="Переименовать файл"
+                          title="Переименовать"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() => startEdit(file)}
+                        >
+                          <PencilLine className="h-4 w-4" />
+                        </button>
+                        <p className="truncate text-sm font-medium">
+                          {file.processedName || file.originalName}
+                        </p>
+                      </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {file.originalName} · {formatSize(file.sizeBytes)}
                       </p>
@@ -453,18 +464,7 @@ export default function JobDetailsPage() {
                       )}
                       Сохранить
                     </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => startEdit(file)}
-                    >
-                      <PencilLine className="h-4 w-4" />
-                      Название
-                    </Button>
-                  )}
+                  ) : null}
                   {file.outputPdfPath && editingFileId !== file.id && (
                     <span className="inline-flex items-center gap-1 text-xs text-primary">
                       <CheckCircle2 className="h-3.5 w-3.5" />

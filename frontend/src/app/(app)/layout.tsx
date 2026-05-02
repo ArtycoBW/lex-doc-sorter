@@ -7,7 +7,6 @@ import { useEffect, useState } from "react"
 import {
   ChevronLeft,
   ChevronRight,
-  CircleDot,
   FolderOpen,
   LayoutDashboard,
   LogOut,
@@ -69,7 +68,7 @@ function LexDocLogo({ compact = false }: { compact?: boolean }) {
 
 function UserAvatar({ name }: { name: string }) {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-xs font-semibold text-primary shadow-[inset_0_1px_0_hsl(var(--primary)/0.15)]">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
       {getInitials(name)}
     </div>
   )
@@ -85,10 +84,10 @@ function NavIcon({
   return (
     <span
       className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-all duration-200",
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
         active
-          ? "border-border/80 bg-background text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.05)]"
-          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/70 group-hover:bg-background/65 group-hover:text-foreground",
+          ? "bg-muted text-foreground"
+          : "text-muted-foreground group-hover:bg-muted/70 group-hover:text-foreground",
       )}
     >
       <Icon className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5" />
@@ -116,7 +115,7 @@ function Sidebar({
           type="button"
           aria-label={collapsed ? "Развернуть сайдбар" : "Свернуть сайдбар"}
           title={collapsed ? "Развернуть" : "Свернуть"}
-          className="absolute right-0 top-[65px] hidden h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-border/80 bg-card/95 text-muted-foreground shadow-[0_16px_40px_-24px_hsl(var(--foreground)/0.8)] backdrop-blur-xl transition-all duration-200 hover:border-primary/40 hover:bg-background hover:text-foreground lg:flex"
+          className="absolute right-0 top-[66px] hidden h-7 w-7 translate-x-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all duration-200 hover:scale-105 hover:bg-muted hover:text-foreground lg:flex"
           onClick={onToggleCollapse}
         >
           {collapsed ? (
@@ -127,12 +126,12 @@ function Sidebar({
         </button>
       )}
 
-      <div className={cn("px-3 pb-3 pt-4", collapsed && "px-2")}>
+      <div className={cn("border-b border-border px-3 py-4", collapsed && "px-2")}>
         <Link
           href="/dashboard"
           onClick={onNavigate}
           className={cn(
-            "group flex min-h-14 items-center rounded-lg border border-border/60 bg-background/50 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] transition-colors hover:border-border hover:bg-background/70",
+            "group flex min-h-12 items-center rounded-xl transition-colors hover:bg-muted/60",
             collapsed ? "justify-center px-0" : "gap-3 px-3",
           )}
           title="Lex-Doc Sorter"
@@ -143,8 +142,7 @@ function Sidebar({
               <div className="truncate text-sm font-semibold tracking-tight text-foreground">
                 Lex-Doc Sorter
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                <CircleDot className="h-3 w-3 text-primary" />
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
                 Документы для суда
               </div>
             </div>
@@ -159,7 +157,7 @@ function Sidebar({
         )}
       >
         {!collapsed && (
-          <div className="sidebar-label-reveal px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">
+          <div className="sidebar-label-reveal px-3 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">
             Работа
           </div>
         )}
@@ -175,11 +173,11 @@ function Sidebar({
               title={collapsed ? item.label : undefined}
               style={{ "--index": index } as CSSProperties}
               className={cn(
-                "stagger-reveal group relative flex min-h-12 items-center rounded-lg border text-sm font-medium transition-all duration-200 active:translate-y-px",
+                "stagger-reveal group flex min-h-11 items-center rounded-xl text-sm font-medium transition-all duration-200 active:translate-y-px",
                 collapsed ? "justify-center px-0" : "gap-2.5 px-2",
                 active
-                  ? "border-border/70 bg-background/76 text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.05)]"
-                  : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-background/50 hover:text-foreground",
+                  ? "bg-muted/78 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/55 hover:text-foreground",
               )}
             >
               <NavIcon icon={item.icon} active={active} />
@@ -196,7 +194,7 @@ function Sidebar({
 
       <div
         className={cn(
-          "space-y-1 border-t border-border/60 p-3",
+          "space-y-1 border-t border-border p-3",
           collapsed && "flex flex-col items-center",
         )}
       >
@@ -220,7 +218,7 @@ function Sidebar({
           </>
         ) : (
           <>
-            <div className="sidebar-label-reveal flex items-center gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+            <div className="sidebar-label-reveal flex items-center gap-3 rounded-xl border border-border bg-muted/28 px-3 py-2.5">
               <UserAvatar name={displayName} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-foreground">
@@ -235,7 +233,7 @@ function Sidebar({
             <Button
               type="button"
               variant="ghost"
-              className="h-9 w-full justify-start gap-2.5 rounded-lg text-sm text-muted-foreground hover:bg-background/60 hover:text-foreground"
+              className="h-9 w-full justify-start gap-2.5 rounded-xl text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               onClick={logout}
             >
               <LogOut className="h-4 w-4" />
@@ -287,10 +285,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_16%_8%,hsl(var(--primary)/0.10),transparent_28%),linear-gradient(135deg,hsl(var(--muted)/0.38),transparent_36%)]" />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/70 bg-card/86 shadow-[18px_0_40px_-34px_hsl(var(--foreground)/0.45)] backdrop-blur-xl transition-[width] duration-300 ease-out lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden border-r border-border bg-card transition-[width] duration-300 ease-out lg:block",
           sidebarCollapsed ? "w-20" : "w-72",
         )}
       >
@@ -352,7 +349,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         <div
           key={pathname}
-          className="page-reveal mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          className="page-reveal mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8"
         >
           {children}
         </div>
