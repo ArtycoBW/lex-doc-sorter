@@ -10,6 +10,7 @@ import { readFile, rm } from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { decodePossiblyMojibakeFileName } from './file-name.util';
 
 const MAX_PAGE_SIZE = 50;
 const ALLOWED_MIME_TYPES = new Set([
@@ -103,9 +104,13 @@ export class JobsService {
     );
 
     if (unsupportedFile) {
+      const unsupportedFileName = this.normalizeOriginalName(
+        unsupportedFile.originalname,
+      );
+
       await this.removeUploadedTempFiles(files);
       throw new BadRequestException(
-        `Формат файла ${unsupportedFile.originalname} не поддерживается`,
+        `Формат файла ${unsupportedFileName} не поддерживается`,
       );
     }
 
@@ -238,7 +243,8 @@ export class JobsService {
 
   private normalizeOriginalName(name: string) {
     const fallback = 'document';
-    const baseName = path.basename(name || fallback);
+    const decodedName = decodePossiblyMojibakeFileName(name || fallback);
+    const baseName = path.basename(decodedName);
     const sanitized = baseName
       .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
       .replace(/\s+/g, ' ')
@@ -248,7 +254,7 @@ export class JobsService {
   }
 
   private normalizeManualName(name: string) {
-    const sanitized = name
+    const sanitized = decodePossiblyMojibakeFileName(name)
       .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
       .replace(/\s+/g, ' ')
       .trim();
@@ -292,6 +298,10 @@ export class JobsService {
       updatedAt: job.updatedAt.toISOString(),
       files: job.files.map((file) => ({
         ...file,
+        originalName: decodePossiblyMojibakeFileName(file.originalName),
+        processedName: file.processedName
+          ? decodePossiblyMojibakeFileName(file.processedName)
+          : file.processedName,
         createdAt: file.createdAt.toISOString(),
         updatedAt: file.updatedAt.toISOString(),
       })),

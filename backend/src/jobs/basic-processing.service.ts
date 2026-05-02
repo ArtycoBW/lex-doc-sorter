@@ -12,6 +12,7 @@ import { Response } from 'express';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { decodePossiblyMojibakeFileName } from './file-name.util';
 
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
 const IMAGE_QUALITY_STEPS = [85, 75, 65, 55, 45];
@@ -66,12 +67,15 @@ export class BasicProcessingService {
     for (const file of job.files) {
       try {
         const outputName = this.buildOutputFileName(
-          file.processedName || file.originalName,
+          decodePossiblyMojibakeFileName(file.processedName || file.originalName),
           file.orderIndex,
         );
         const outputKey = `output/${userId}/${job.id}/${outputName}`;
         const originalBuffer = await this.storage.download(file.originalPath);
-        const result = await this.processFile(originalBuffer, file.originalName);
+        const result = await this.processFile(
+          originalBuffer,
+          decodePossiblyMojibakeFileName(file.originalName),
+        );
         const storedOutputKey = await this.storage.upload(
           outputKey,
           result.outputBuffer,
@@ -157,7 +161,7 @@ export class BasicProcessingService {
       const buffer = await this.storage.download(outputPath);
       archive.append(buffer, {
         name: this.buildOutputFileName(
-          file.processedName || file.originalName,
+          decodePossiblyMojibakeFileName(file.processedName || file.originalName),
           file.orderIndex,
         ),
       });
@@ -264,9 +268,12 @@ export class BasicProcessingService {
 
   private buildOutputFileName(name: string, orderIndex: number) {
     const fallback = `document_${String(orderIndex + 1).padStart(3, '0')}`;
-    const extension = path.extname(name).toLowerCase();
+    const decodedName = decodePossiblyMojibakeFileName(name);
+    const extension = path.extname(decodedName).toLowerCase();
     const rawBase =
-      extension === '.pdf' ? path.basename(name, extension) : path.basename(name);
+      extension === '.pdf'
+        ? path.basename(decodedName, extension)
+        : path.basename(decodedName);
     const base = this.sanitizeFileName(rawBase) || fallback;
     const prefixed = /^\d{3}[_-]/.test(base)
       ? base
@@ -295,6 +302,10 @@ export class BasicProcessingService {
       updatedAt: job.updatedAt.toISOString(),
       files: job.files.map((file) => ({
         ...file,
+        originalName: decodePossiblyMojibakeFileName(file.originalName),
+        processedName: file.processedName
+          ? decodePossiblyMojibakeFileName(file.processedName)
+          : file.processedName,
         createdAt: file.createdAt.toISOString(),
         updatedAt: file.updatedAt.toISOString(),
       })),
