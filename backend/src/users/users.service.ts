@@ -46,6 +46,73 @@ export class UsersService {
     return users.map((user) => this.serializeUser(user));
   }
 
+  async getAdminOverview() {
+    const [
+      totalUsers,
+      verifiedUsers,
+      bannedUsers,
+      proUsers,
+      adminUsers,
+      totalJobs,
+      totalFiles,
+      completedFiles,
+      recentJobs,
+      jobStatusCounts,
+    ] = await this.prisma.$transaction([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { isVerified: true } }),
+      this.prisma.user.count({ where: { isBanned: true } }),
+      this.prisma.user.count({ where: { role: UserRole.PRO } }),
+      this.prisma.user.count({ where: { role: UserRole.ADMIN } }),
+      this.prisma.sortingJob.count(),
+      this.prisma.processedFile.count(),
+      this.prisma.processedFile.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.sortingJob.findMany({
+        take: 8,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          user: { select: { email: true, name: true } },
+        },
+      }),
+      this.prisma.sortingJob.groupBy({
+        by: ['status'],
+        orderBy: { status: 'asc' },
+        _count: { id: true },
+      }),
+    ]);
+
+    return {
+      totals: {
+        users: totalUsers,
+        verifiedUsers,
+        bannedUsers,
+        demoUsers: Math.max(totalUsers - proUsers - adminUsers, 0),
+        proUsers,
+        adminUsers,
+        jobs: totalJobs,
+        files: totalFiles,
+        completedFiles,
+      },
+      jobStatuses: jobStatusCounts.reduce<Record<string, number>>(
+        (acc, item) => {
+          acc[item.status] =
+            (item._count as { id?: number } | undefined)?.id ?? 0;
+          return acc;
+        },
+        {},
+      ),
+      recentJobs: recentJobs.map((job) => ({
+        id: job.id,
+        status: job.status,
+        totalFiles: job.totalFiles,
+        processedFiles: job.processedFiles,
+        createdAt: job.createdAt.toISOString(),
+        updatedAt: job.updatedAt.toISOString(),
+        user: job.user,
+      })),
+    };
+  }
+
   async getCurrentUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

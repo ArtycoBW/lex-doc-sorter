@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  ShieldCheck,
   Upload,
   User,
   X,
@@ -29,6 +30,10 @@ const navigation = [
   { href: "/jobs/new", label: "Новое задание", icon: Upload },
   { href: "/jobs", label: "Мои задания", icon: FolderOpen },
   { href: "/profile", label: "Профиль", icon: User },
+]
+
+const adminNavigation = [
+  { href: "/admin", label: "Администрирование", icon: ShieldCheck },
 ]
 
 function isActivePath(pathname: string, href: string) {
@@ -107,6 +112,8 @@ function Sidebar({
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const displayName = user?.name?.trim() || user?.email || "Lex-Doc"
+  const visibleNavigation =
+    user?.role === "ADMIN" ? [...navigation, ...adminNavigation] : navigation
 
   return (
     <div className="relative flex h-full flex-col">
@@ -162,7 +169,7 @@ function Sidebar({
           </div>
         )}
         <div className="space-y-1">
-        {navigation.map((item, index) => {
+        {visibleNavigation.map((item, index) => {
           const active = isActivePath(pathname, item.href)
 
           return (

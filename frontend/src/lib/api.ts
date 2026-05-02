@@ -178,6 +178,33 @@ export type SortingJob = {
   files: ProcessedFile[];
 };
 
+export type AdminOverview = {
+  totals: {
+    users: number;
+    verifiedUsers: number;
+    bannedUsers: number;
+    demoUsers: number;
+    proUsers: number;
+    adminUsers: number;
+    jobs: number;
+    files: number;
+    completedFiles: number;
+  };
+  jobStatuses: Record<string, number>;
+  recentJobs: Array<{
+    id: string;
+    status: JobStatus;
+    totalFiles: number;
+    processedFiles: number;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      email: string;
+      name: string | null;
+    };
+  }>;
+};
+
 export type JobProgress = {
   jobId: string;
   status: JobStatus;
@@ -1516,6 +1543,8 @@ export const api = {
 
     return request<AdminUserItem[]>(`/admin/users${query}`);
   },
+
+  getAdminOverview: () => request<AdminOverview>('/admin/overview'),
 
   updateAdminUserRole: (userId: string, role: 'DEMO' | 'PRO' | 'ADMIN') =>
     request<AdminUserItem>(`/admin/users/${userId}/role`, {
