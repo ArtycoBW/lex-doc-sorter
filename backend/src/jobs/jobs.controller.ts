@@ -89,6 +89,11 @@ export class JobsController {
     return this.processingQueueService.enqueueJob(req.user.sub, jobId);
   }
 
+  @Post(':id/cancel')
+  cancelProcessing(@Req() req: any, @Param('id') jobId: string) {
+    return this.processingQueueService.cancelJob(req.user.sub, jobId);
+  }
+
   @Get()
   listJobs(
     @Req() req: any,

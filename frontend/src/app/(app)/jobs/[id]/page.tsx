@@ -4,10 +4,11 @@ import { useParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Archive,
+  Ban,
   CheckCircle2,
   FileText,
   Loader2,
-  Pencil,
+  PencilLine,
   Play,
   Save,
   Sparkles,
@@ -16,24 +17,26 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api, type ProcessedFile, type SortingJob } from "@/lib/api"
+import { api, type FileStatus, type JobStatus, type ProcessedFile, type SortingJob } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
-const statusLabels: Record<SortingJob["status"], string> = {
-  PENDING: "Ожидает",
+const statusLabels: Record<JobStatus, string> = {
+  PENDING: "Файлы загружены",
   UPLOADING: "Загрузка",
   PROCESSING: "Обработка",
   COMPLETED: "Готово",
-  FAILED: "Ошибка",
+  FAILED: "Остановлено",
 }
 
-const fileStatusLabels: Record<ProcessedFile["status"], string> = {
-  PENDING: "Ожидает",
-  PROCESSING: "Обработка",
+const fileStatusLabels: Record<FileStatus, string> = {
+  PENDING: "Загружен",
+  PROCESSING: "В работе",
   COMPLETED: "PDF готов",
   FAILED: "Ошибка",
-  SKIPPED: "Пропущен",
+  SKIPPED: "Отменён",
 }
+
+const activeStatuses = new Set<JobStatus>(["UPLOADING", "PROCESSING"])
 
 function formatSize(size: number) {
   if (size >= 1024 * 1024) {
@@ -69,6 +72,26 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url)
 }
 
+function getJobBadgeClass(status: JobStatus) {
+  return cn(
+    "rounded-full px-3 py-1",
+    status === "COMPLETED" && "border-emerald-500/35 text-emerald-600 dark:text-emerald-400",
+    status === "FAILED" && "border-amber-500/35 text-amber-600 dark:text-amber-400",
+    status === "PROCESSING" && "border-primary/35 text-primary",
+    status === "UPLOADING" && "border-primary/35 text-primary",
+  )
+}
+
+function getFileBadgeClass(status: FileStatus) {
+  return cn(
+    "rounded-full px-3 py-1",
+    status === "COMPLETED" && "border-emerald-500/35 text-emerald-600 dark:text-emerald-400",
+    status === "FAILED" && "border-destructive/35 text-destructive",
+    status === "PROCESSING" && "border-primary/35 text-primary",
+    status === "SKIPPED" && "border-amber-500/35 text-amber-600 dark:text-amber-400",
+  )
+}
+
 export default function JobDetailsPage() {
   const params = useParams<{ id: string }>()
   const jobId = params.id
@@ -78,6 +101,7 @@ export default function JobDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [canceling, setCanceling] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState("")
 
@@ -87,7 +111,9 @@ export default function JobDetailsPage() {
         setLoading(true)
       }
 
-      setError("")
+      if (!options?.silent) {
+        setError("")
+      }
 
       try {
         setJob(await api.getJob(jobId))
@@ -107,43 +133,16 @@ export default function JobDetailsPage() {
   }, [loadJob])
 
   useEffect(() => {
-    if (job?.status !== "PROCESSING") {
+    if (!job || !activeStatuses.has(job.status)) {
       return
     }
 
-    const pollProgress = async () => {
-      try {
-        const progress = await api.getJobProgress(job.id)
-
-        setJob((currentJob) => {
-          if (!currentJob || currentJob.id !== progress.jobId) {
-            return currentJob
-          }
-
-          return {
-            ...currentJob,
-            status: progress.status,
-            processedFiles: progress.processedFiles,
-            totalFiles: progress.totalFiles,
-          }
-        })
-
-        if (progress.status === "COMPLETED" || progress.status === "FAILED") {
-          void loadJob({ silent: true })
-        }
-      } catch {
-        void loadJob({ silent: true })
-      }
-    }
-
-    void pollProgress()
-
     const timer = window.setInterval(() => {
-      void pollProgress()
-    }, 2000)
+      void loadJob({ silent: true })
+    }, 1500)
 
     return () => window.clearInterval(timer)
-  }, [job?.id, job?.status, loadJob])
+  }, [job, loadJob])
 
   const progress = useMemo(() => {
     if (!job?.totalFiles) {
@@ -157,6 +156,11 @@ export default function JobDetailsPage() {
     Boolean(job?.files.length) &&
     job?.status !== "PROCESSING" &&
     job?.status !== "UPLOADING"
+  const canCancel =
+    Boolean(job?.files.length) &&
+    (job?.status === "PROCESSING" ||
+      job?.status === "UPLOADING" ||
+      job?.status === "PENDING")
   const canDownload = job?.status === "COMPLETED" && job.processedFiles > 0
 
   const startEdit = (file: ProcessedFile) => {
@@ -188,7 +192,7 @@ export default function JobDetailsPage() {
       setEditingFileId(null)
       setEditingName("")
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "Не удалось сохранить имя файла"))
+      setError(getErrorMessage(error, "Не удалось сохранить название файла"))
     } finally {
       setSaving(false)
     }
@@ -209,6 +213,24 @@ export default function JobDetailsPage() {
       await loadJob({ silent: true })
     } finally {
       setProcessing(false)
+    }
+  }
+
+  const cancelProcessing = async () => {
+    if (!job) {
+      return
+    }
+
+    setCanceling(true)
+    setError("")
+
+    try {
+      setJob(await api.cancelJobProcessing(job.id))
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Не удалось отменить обработку"))
+      await loadJob({ silent: true })
+    } finally {
+      setCanceling(false)
     }
   }
 
@@ -241,7 +263,7 @@ export default function JobDetailsPage() {
 
   if (!job) {
     return (
-      <div className="rounded-lg border border-border bg-card/70 px-5 py-10 text-center">
+      <div className="rounded-xl border border-border bg-card/70 px-5 py-10 text-center">
         {error || "Задание не найдено"}
       </div>
     )
@@ -253,51 +275,49 @@ export default function JobDetailsPage() {
         <div>
           <p className="text-sm font-medium text-primary">Задание</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-            {job.id.slice(0, 8)}
+            Пакет {job.id.slice(0, 8)}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Создано {formatDate(job.createdAt)}
           </p>
         </div>
-        <Badge
-          variant="outline"
-          className={cn(
-            job.status === "COMPLETED" && "border-emerald-500/40 text-emerald-500",
-            job.status === "FAILED" && "border-destructive/40 text-destructive",
-            job.status === "PROCESSING" && "border-primary/40 text-primary",
+        <Badge variant="outline" className={getJobBadgeClass(job.status)}>
+          {activeStatuses.has(job.status) && (
+            <span className="mr-1.5 inline-flex h-2 w-2 rounded-full bg-primary" />
           )}
-        >
           {statusLabels[job.status]}
         </Badge>
       </section>
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <section className="rounded-lg border border-border bg-card/70 p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="inline-flex w-full rounded-md border border-border bg-muted/40 p-1 sm:w-auto">
-            <button
-              type="button"
-              className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-sm bg-background px-4 text-sm font-medium shadow-sm sm:flex-none"
-            >
-              <Play className="h-4 w-4" />
-              Быстрый режим
-            </button>
-            <button
-              type="button"
-              disabled
-              className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-sm px-4 text-sm font-medium text-muted-foreground opacity-60 sm:flex-none"
-            >
-              <Sparkles className="h-4 w-4" />
-              Умный режим
-            </button>
+      <section className="overflow-hidden rounded-xl border border-border bg-card/72 shadow-[0_24px_80px_-58px_hsl(var(--foreground)/0.45)]">
+        <div className="grid gap-0 lg:grid-cols-[1fr_auto]">
+          <div className="p-5">
+            <div className="inline-flex rounded-lg border border-border bg-background/58 p-1">
+              <button
+                type="button"
+                className="flex min-h-10 items-center justify-center gap-2 rounded-md bg-card px-4 text-sm font-medium shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]"
+              >
+                <Play className="h-4 w-4" />
+                Быстрый режим
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-muted-foreground opacity-60"
+              >
+                <Sparkles className="h-4 w-4" />
+                Умный режим
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 border-t border-border p-5 sm:flex-row lg:border-l lg:border-t-0">
             <Button
               type="button"
               className="gap-2"
@@ -311,6 +331,22 @@ export default function JobDetailsPage() {
               )}
               Обработать
             </Button>
+            {canCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={canceling}
+                onClick={() => void cancelProcessing()}
+              >
+                {canceling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Ban className="h-4 w-4" />
+                )}
+                Отменить
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -328,44 +364,44 @@ export default function JobDetailsPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md border border-border bg-background/60 p-4">
-            <p className="text-sm text-muted-foreground">Файлов</p>
-            <p className="mt-2 text-2xl font-semibold">{job.totalFiles}</p>
-          </div>
-          <div className="rounded-md border border-border bg-background/60 p-4">
-            <p className="text-sm text-muted-foreground">PDF готово</p>
-            <p className="mt-2 text-2xl font-semibold">{job.processedFiles}</p>
-          </div>
-          <div className="rounded-md border border-border bg-background/60 p-4">
-            <p className="text-sm text-muted-foreground">Прогресс</p>
-            <p className="mt-2 text-2xl font-semibold">{progress}%</p>
-          </div>
+        <div className="grid border-t border-border sm:grid-cols-3">
+          {[
+            ["Файлов", job.totalFiles],
+            ["PDF готово", job.processedFiles],
+            ["Прогресс", `${progress}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="border-b border-border p-5 sm:border-b-0 sm:border-r last:border-r-0">
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="mt-2 text-2xl font-semibold">{value}</p>
+            </div>
+          ))}
         </div>
 
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>
-            Обработано {job.processedFiles} из {job.totalFiles}
-          </span>
-          <span>{statusLabels[job.status]}</span>
+        <div className="p-5">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span>
+              Обработано {job.processedFiles} из {job.totalFiles}
+            </span>
+            <span>{statusLabels[job.status]}</span>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-card/70">
+      <section className="overflow-hidden rounded-xl border border-border bg-card/72">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold">Файлы задания</h2>
         </div>
         <div className="divide-y divide-border">
           {job.files.map((file) => (
-            <div key={file.id} className="px-5 py-4">
+            <div key={file.id} className="px-5 py-4 transition-colors hover:bg-background/42">
               <div className="grid gap-3 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <FileText className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -384,7 +420,7 @@ export default function JobDetailsPage() {
                       <p className="truncate text-sm font-medium">
                         {file.processedName || file.originalName}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
                         {file.originalName} · {formatSize(file.sizeBytes)}
                       </p>
                       {file.errorMessage && (
@@ -396,15 +432,10 @@ export default function JobDetailsPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      file.status === "COMPLETED" &&
-                        "border-emerald-500/40 text-emerald-500",
-                      file.status === "FAILED" &&
-                        "border-destructive/40 text-destructive",
+                  <Badge variant="outline" className={getFileBadgeClass(file.status)}>
+                    {file.status === "PROCESSING" && (
+                      <span className="mr-1.5 inline-flex h-2 w-2 rounded-full bg-primary" />
                     )}
-                  >
                     {fileStatusLabels[file.status]}
                   </Badge>
                   {editingFileId === file.id ? (
@@ -430,8 +461,8 @@ export default function JobDetailsPage() {
                       className="gap-2"
                       onClick={() => startEdit(file)}
                     >
-                      <Pencil className="h-4 w-4" />
-                      Имя
+                      <PencilLine className="h-4 w-4" />
+                      Название
                     </Button>
                   )}
                   {file.outputPdfPath && editingFileId !== file.id && (

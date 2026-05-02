@@ -19,6 +19,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { UploadResumeBanner } from "@/components/upload-resume-banner"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -86,7 +87,7 @@ function NavIcon({
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-all duration-200",
         active
-          ? "border-primary/30 bg-primary text-primary-foreground shadow-[0_12px_28px_-20px_hsl(var(--primary)/0.9)]"
+          ? "border-border/80 bg-background text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.05)]"
           : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/70 group-hover:bg-background/65 group-hover:text-foreground",
       )}
     >
@@ -177,13 +178,10 @@ function Sidebar({
                 "stagger-reveal group relative flex min-h-12 items-center rounded-lg border text-sm font-medium transition-all duration-200 active:translate-y-px",
                 collapsed ? "justify-center px-0" : "gap-2.5 px-2",
                 active
-                  ? "border-border/70 bg-background/80 text-foreground shadow-[0_18px_42px_-34px_hsl(var(--foreground)/0.72),inset_0_1px_0_hsl(var(--foreground)/0.05)]"
+                  ? "border-border/70 bg-background/76 text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.05)]"
                   : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-background/50 hover:text-foreground",
               )}
             >
-              {active && (
-                <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" />
-              )}
               <NavIcon icon={item.icon} active={active} />
               {!collapsed && (
                 <span className="truncate tracking-[-0.01em]">
@@ -359,6 +357,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+      <UploadResumeBanner />
     </div>
   )
 }

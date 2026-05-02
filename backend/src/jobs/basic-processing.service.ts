@@ -98,6 +98,41 @@ export class BasicProcessingService {
     return this.getOwnedJob(userId, job.id);
   }
 
+  async cancelJob(userId: string, jobId: string) {
+    const job = await this.getOwnedJob(userId, jobId);
+
+    if (
+      job.status !== JobStatus.UPLOADING &&
+      job.status !== JobStatus.PROCESSING &&
+      job.status !== JobStatus.PENDING
+    ) {
+      return this.serializeJob(job);
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.processedFile.updateMany({
+        where: {
+          jobId: job.id,
+          status: { in: [FileStatus.PENDING, FileStatus.PROCESSING] },
+        },
+        data: {
+          status: FileStatus.SKIPPED,
+          errorMessage: 'Отменено пользователем',
+        },
+      }),
+      this.prisma.sortingJob.update({
+        where: { id: job.id },
+        data: {
+          status: JobStatus.FAILED,
+          errorMessage: 'Обработка отменена пользователем',
+          processedFiles: job.files.length,
+        },
+      }),
+    ]);
+
+    return this.getJob(userId, job.id);
+  }
+
   async processQueuedFile(payload: ImageProcessorJob) {
     const file = await this.prisma.processedFile.findFirst({
       where: { id: payload.fileId, jobId: payload.jobId },
@@ -106,6 +141,13 @@ export class BasicProcessingService {
 
     if (!file || file.job.userId !== payload.userId) {
       throw new NotFoundException('Файл не найден');
+    }
+
+    if (
+      file.job.status !== JobStatus.PROCESSING ||
+      file.status !== FileStatus.PROCESSING
+    ) {
+      return;
     }
 
     try {
@@ -127,6 +169,20 @@ export class BasicProcessingService {
         result.outputBuffer,
         'application/pdf',
       );
+
+      const freshFile = await this.prisma.processedFile.findUnique({
+        where: { id: file.id },
+        include: { job: true },
+      });
+
+      if (
+        !freshFile ||
+        freshFile.job.status !== JobStatus.PROCESSING ||
+        freshFile.status !== FileStatus.PROCESSING
+      ) {
+        await this.storage.delete(storedOutputKey);
+        return;
+      }
 
       await this.prisma.processedFile.update({
         where: { id: file.id },
@@ -217,6 +273,10 @@ export class BasicProcessingService {
     });
 
     if (!job) {
+      return;
+    }
+
+    if (job.status !== JobStatus.PROCESSING) {
       return;
     }
 

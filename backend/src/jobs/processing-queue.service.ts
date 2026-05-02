@@ -43,4 +43,21 @@ export class ProcessingQueueService {
 
     return this.basicProcessing.getJob(userId, job.id);
   }
+
+  async cancelJob(userId: string, jobId: string) {
+    const queuedJobs = await this.imageQueue.getJobs(
+      ['waiting', 'delayed', 'prioritized', 'paused'],
+      0,
+      -1,
+      true,
+    );
+
+    await Promise.allSettled(
+      queuedJobs
+        .filter((job) => job.data.jobId === jobId)
+        .map((job) => job.remove()),
+    );
+
+    return this.basicProcessing.cancelJob(userId, jobId);
+  }
 }

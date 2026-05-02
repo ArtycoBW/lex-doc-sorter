@@ -942,6 +942,12 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
+  cancelJobProcessing: (jobId: string) =>
+    request<SortingJob>(`/jobs/${jobId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
   downloadJobArchive: async (jobId: string) => {
     try {
       const res = await authorizedFetch(`/jobs/${jobId}/download`);
@@ -986,10 +992,30 @@ export const api = {
     jobId: string,
     files: File[],
     onProgress?: (progress: number) => void,
+    options?: { signal?: AbortSignal },
   ) =>
     new Promise<SortingJob>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const formData = new FormData();
+      let settled = false;
+
+      const fail = (error: Error) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        reject(error);
+      };
+
+      const succeed = (job: SortingJob) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        resolve(job);
+      };
 
       for (const file of files) {
         formData.append('files', file);
@@ -1021,11 +1047,11 @@ export const api = {
 
         if (xhr.status >= 200 && xhr.status < 300) {
           onProgress?.(100);
-          resolve(payload as SortingJob);
+          succeed(payload as SortingJob);
           return;
         }
 
-        reject(
+        fail(
           new Error(
             normalizeErrorMessage(
               payload?.message,
@@ -1037,7 +1063,7 @@ export const api = {
       };
 
       xhr.onerror = () => {
-        reject(
+        fail(
           new Error(
             normalizeErrorMessage(
               'Failed to fetch',
@@ -1047,6 +1073,25 @@ export const api = {
           ),
         );
       };
+
+      xhr.onabort = () => {
+        fail(new Error(REQUEST_ABORTED_ERROR));
+      };
+
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          xhr.abort();
+          return;
+        }
+
+        options.signal.addEventListener(
+          'abort',
+          () => {
+            xhr.abort();
+          },
+          { once: true },
+        );
+      }
 
       xhr.send(formData);
     }),
