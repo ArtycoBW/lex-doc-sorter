@@ -9,10 +9,10 @@ import archiver = require('archiver');
 import { Response } from 'express';
 import { PDFDocument } from 'pdf-lib';
 import * as path from 'path';
-import sharp = require('sharp');
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
+import { ImagePreprocessingService } from './image-preprocessing.service';
 import type { ImageProcessorJob } from './processing-queue.service';
 
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
@@ -38,6 +38,7 @@ export class BasicProcessingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly imagePreprocessing: ImagePreprocessingService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -264,15 +265,17 @@ export class BasicProcessingService {
   }
 
   private async imageToPdf(buffer: Buffer): Promise<ProcessResult> {
+    const preparedBuffer =
+      await this.imagePreprocessing.prepareDocumentImage(buffer);
     let bestResult: Buffer | null = null;
 
     for (const width of IMAGE_WIDTH_STEPS) {
       for (const quality of IMAGE_QUALITY_STEPS) {
-        const imageBuffer = await sharp(buffer, { failOn: 'none' })
-          .rotate()
-          .resize({ width, withoutEnlargement: true })
-          .jpeg({ quality, mozjpeg: true })
-          .toBuffer();
+        const imageBuffer = await this.imagePreprocessing.compressForPdf(
+          preparedBuffer,
+          width,
+          quality,
+        );
         const pdfBuffer = await this.createSinglePagePdf(imageBuffer);
 
         bestResult = pdfBuffer;
