@@ -45,6 +45,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       PORT: 3001
       OTP_DEV_MODE: ${OTP_DEV_MODE:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}

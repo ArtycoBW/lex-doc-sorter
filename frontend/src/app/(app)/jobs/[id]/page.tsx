@@ -107,16 +107,43 @@ export default function JobDetailsPage() {
   }, [loadJob])
 
   useEffect(() => {
-    if (job?.status !== "PROCESSING" && job?.status !== "UPLOADING") {
+    if (job?.status !== "PROCESSING") {
       return
     }
 
+    const pollProgress = async () => {
+      try {
+        const progress = await api.getJobProgress(job.id)
+
+        setJob((currentJob) => {
+          if (!currentJob || currentJob.id !== progress.jobId) {
+            return currentJob
+          }
+
+          return {
+            ...currentJob,
+            status: progress.status,
+            processedFiles: progress.processedFiles,
+            totalFiles: progress.totalFiles,
+          }
+        })
+
+        if (progress.status === "COMPLETED" || progress.status === "FAILED") {
+          void loadJob({ silent: true })
+        }
+      } catch {
+        void loadJob({ silent: true })
+      }
+    }
+
+    void pollProgress()
+
     const timer = window.setInterval(() => {
-      void loadJob({ silent: true })
+      void pollProgress()
     }, 2000)
 
     return () => window.clearInterval(timer)
-  }, [job?.status, loadJob])
+  }, [job?.id, job?.status, loadJob])
 
   const progress = useMemo(() => {
     if (!job?.totalFiles) {
@@ -321,6 +348,12 @@ export default function JobDetailsPage() {
             className="h-full rounded-full bg-primary transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>
+            Обработано {job.processedFiles} из {job.totalFiles}
+          </span>
+          <span>{statusLabels[job.status]}</span>
         </div>
       </section>
 

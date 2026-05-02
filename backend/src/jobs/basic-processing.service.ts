@@ -6,17 +6,23 @@ import {
 } from '@nestjs/common';
 import { FileStatus, JobStatus, Prisma } from '@prisma/client';
 import archiver = require('archiver');
-import { PDFDocument } from 'pdf-lib';
-import sharp = require('sharp');
 import { Response } from 'express';
+import { PDFDocument } from 'pdf-lib';
 import * as path from 'path';
+import sharp = require('sharp');
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
+import type { ImageProcessorJob } from './processing-queue.service';
 
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
 const IMAGE_QUALITY_STEPS = [85, 75, 65, 55, 45];
 const IMAGE_WIDTH_STEPS = [2480, 2000, 1600, 1200, 900];
+const FINISHED_FILE_STATUSES = new Set<FileStatus>([
+  FileStatus.COMPLETED,
+  FileStatus.FAILED,
+  FileStatus.SKIPPED,
+]);
 
 type JobWithFiles = Prisma.SortingJobGetPayload<{
   include: { files: { orderBy: { orderIndex: 'asc' } } };
@@ -34,7 +40,27 @@ export class BasicProcessingService {
     private readonly storage: StorageService,
   ) {}
 
-  async processJob(userId: string, jobId: string) {
+  async getJob(userId: string, jobId: string) {
+    return this.serializeJob(await this.getOwnedJob(userId, jobId));
+  }
+
+  async getProgress(userId: string, jobId: string) {
+    const job = await this.getOwnedJob(userId, jobId);
+    const processedFiles = job.files.filter((file) =>
+      FINISHED_FILE_STATUSES.has(file.status),
+    ).length;
+    const totalFiles = job.totalFiles || job.files.length;
+
+    return {
+      jobId: job.id,
+      status: job.status,
+      processedFiles,
+      totalFiles,
+      percent: totalFiles > 0 ? Math.round((processedFiles / totalFiles) * 100) : 0,
+    };
+  }
+
+  async prepareJobForProcessing(userId: string, jobId: string) {
     const job = await this.getOwnedJob(userId, jobId);
 
     if (job.files.length === 0) {
@@ -45,92 +71,79 @@ export class BasicProcessingService {
       throw new BadRequestException('Задание уже обрабатывается');
     }
 
-    await this.prisma.sortingJob.update({
-      where: { id: job.id },
-      data: {
-        status: JobStatus.PROCESSING,
-        processedFiles: 0,
-        errorMessage: null,
-      },
+    await this.prisma.$transaction([
+      this.prisma.sortingJob.update({
+        where: { id: job.id },
+        data: {
+          status: JobStatus.PROCESSING,
+          processedFiles: 0,
+          errorMessage: null,
+        },
+      }),
+      this.prisma.processedFile.updateMany({
+        where: { jobId: job.id },
+        data: {
+          status: FileStatus.PROCESSING,
+          processedPath: null,
+          outputPdfPath: null,
+          errorMessage: null,
+        },
+      }),
+    ]);
+
+    return this.getOwnedJob(userId, job.id);
+  }
+
+  async processQueuedFile(payload: ImageProcessorJob) {
+    const file = await this.prisma.processedFile.findFirst({
+      where: { id: payload.fileId, jobId: payload.jobId },
+      include: { job: true },
     });
 
-    await this.prisma.processedFile.updateMany({
-      where: { jobId: job.id },
-      data: {
-        status: FileStatus.PROCESSING,
-        errorMessage: null,
-      },
-    });
-
-    let completedCount = 0;
-
-    for (const file of job.files) {
-      try {
-        const outputName = this.buildOutputFileName(
-          decodePossiblyMojibakeFileName(file.processedName || file.originalName),
-          file.orderIndex,
-        );
-        const outputKey = `output/${userId}/${job.id}/${outputName}`;
-        const originalBuffer = await this.storage.download(file.originalPath);
-        const result = await this.processFile(
-          originalBuffer,
-          decodePossiblyMojibakeFileName(file.originalName),
-        );
-        const storedOutputKey = await this.storage.upload(
-          outputKey,
-          result.outputBuffer,
-          'application/pdf',
-        );
-
-        await this.prisma.processedFile.update({
-          where: { id: file.id },
-          data: {
-            status: FileStatus.COMPLETED,
-            processedName: outputName,
-            processedPath: storedOutputKey,
-            outputPdfPath: storedOutputKey,
-            pageCount: result.pageCount,
-            errorMessage: null,
-          },
-        });
-
-        completedCount += 1;
-
-        await this.prisma.sortingJob.update({
-          where: { id: job.id },
-          data: { processedFiles: completedCount },
-        });
-      } catch (error) {
-        await this.prisma.processedFile.update({
-          where: { id: file.id },
-          data: {
-            status: FileStatus.FAILED,
-            errorMessage:
-              error instanceof Error
-                ? error.message
-                : 'Не удалось обработать файл',
-          },
-        });
-      }
+    if (!file || file.job.userId !== payload.userId) {
+      throw new NotFoundException('Файл не найден');
     }
 
-    const finalStatus =
-      completedCount === job.files.length ? JobStatus.COMPLETED : JobStatus.FAILED;
+    try {
+      const originalName = decodePossiblyMojibakeFileName(file.originalName);
+      const outputName = this.buildOutputFileName(
+        decodePossiblyMojibakeFileName(file.processedName || originalName),
+        file.orderIndex,
+      );
+      const outputKey = `output/${payload.userId}/${payload.jobId}/${outputName}`;
+      const originalBuffer = await this.storage.download(file.originalPath);
+      const result = await this.processFile(originalBuffer, originalName);
+      const storedOutputKey = await this.storage.upload(
+        outputKey,
+        result.outputBuffer,
+        'application/pdf',
+      );
 
-    const updatedJob = await this.prisma.sortingJob.update({
-      where: { id: job.id },
-      data: {
-        status: finalStatus,
-        processedFiles: completedCount,
-        errorMessage:
-          finalStatus === JobStatus.FAILED
-            ? 'Часть файлов не удалось обработать'
-            : null,
-      },
-      include: { files: { orderBy: { orderIndex: 'asc' } } },
-    });
-
-    return this.serializeJob(updatedJob);
+      await this.prisma.processedFile.update({
+        where: { id: file.id },
+        data: {
+          status: FileStatus.COMPLETED,
+          processedName: outputName,
+          processedPath: storedOutputKey,
+          outputPdfPath: storedOutputKey,
+          pageCount: result.pageCount,
+          errorMessage: null,
+        },
+      });
+    } catch (error) {
+      await this.prisma.processedFile.update({
+        where: { id: file.id },
+        data: {
+          status: FileStatus.FAILED,
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : 'Не удалось обработать файл',
+        },
+      });
+    } finally {
+      await this.finalizeJobIfFinished(payload.jobId);
+    }
   }
 
   async streamJobArchive(userId: string, jobId: string, response: Response) {
@@ -185,6 +198,44 @@ export class BasicProcessingService {
     }
 
     return job;
+  }
+
+  private async finalizeJobIfFinished(jobId: string) {
+    const job = await this.prisma.sortingJob.findUnique({
+      where: { id: jobId },
+      include: { files: { orderBy: { orderIndex: 'asc' } } },
+    });
+
+    if (!job) {
+      return;
+    }
+
+    const processedFiles = job.files.filter((file) =>
+      FINISHED_FILE_STATUSES.has(file.status),
+    ).length;
+
+    if (processedFiles < job.files.length) {
+      await this.prisma.sortingJob.update({
+        where: { id: job.id },
+        data: { processedFiles },
+      });
+      return;
+    }
+
+    const hasFailedFiles = job.files.some(
+      (file) => file.status === FileStatus.FAILED,
+    );
+
+    await this.prisma.sortingJob.update({
+      where: { id: job.id },
+      data: {
+        status: hasFailedFiles ? JobStatus.FAILED : JobStatus.COMPLETED,
+        processedFiles,
+        errorMessage: hasFailedFiles
+          ? 'Часть файлов не удалось обработать'
+          : null,
+      },
+    });
   }
 
   private async processFile(

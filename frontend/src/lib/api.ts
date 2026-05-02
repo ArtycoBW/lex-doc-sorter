@@ -178,6 +178,14 @@ export type SortingJob = {
   files: ProcessedFile[];
 };
 
+export type JobProgress = {
+  jobId: string;
+  status: JobStatus;
+  processedFiles: number;
+  totalFiles: number;
+  percent: number;
+};
+
 export type JobsPageResponse = {
   items: SortingJob[];
   total: number;
@@ -924,6 +932,9 @@ export const api = {
   },
 
   getJob: (jobId: string) => request<SortingJob>(`/jobs/${jobId}`),
+
+  getJobProgress: (jobId: string) =>
+    request<JobProgress>(`/jobs/${jobId}/progress`),
 
   startJobProcessing: (jobId: string) =>
     request<SortingJob>(`/jobs/${jobId}/start`, {

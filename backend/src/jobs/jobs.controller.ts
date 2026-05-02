@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BasicProcessingService } from './basic-processing.service';
 import { UpdateFileNameDto } from './dto/update-file-name.dto';
 import { JobsService } from './jobs.service';
+import { ProcessingQueueService } from './processing-queue.service';
 
 const MAX_FILES = 500;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -44,6 +45,7 @@ export class JobsController {
   constructor(
     private readonly jobsService: JobsService,
     private readonly basicProcessingService: BasicProcessingService,
+    private readonly processingQueueService: ProcessingQueueService,
   ) {}
 
   @Post()
@@ -84,7 +86,7 @@ export class JobsController {
 
   @Post(':id/start')
   startBasicProcessing(@Req() req: any, @Param('id') jobId: string) {
-    return this.basicProcessingService.processJob(req.user.sub, jobId);
+    return this.processingQueueService.enqueueJob(req.user.sub, jobId);
   }
 
   @Get()
@@ -107,6 +109,11 @@ export class JobsController {
       jobId,
       response,
     );
+  }
+
+  @Get(':id/progress')
+  getJobProgress(@Req() req: any, @Param('id') jobId: string) {
+    return this.basicProcessingService.getProgress(req.user.sub, jobId);
   }
 
   @Get(':id')
