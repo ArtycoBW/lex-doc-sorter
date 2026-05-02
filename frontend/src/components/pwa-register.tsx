@@ -11,18 +11,52 @@ export function PwaRegister() {
       return
     }
 
-    const register = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined)
+    let cancelled = false
+
+    async function registerServiceWorker() {
+      try {
+        const registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        })
+
+        await registration.update().catch(() => undefined)
+
+        if (!cancelled) {
+          window.dispatchEvent(
+            new CustomEvent("lex-doc-pwa-registered", {
+              detail: {
+                controlled: Boolean(navigator.serviceWorker.controller),
+                scope: registration.scope,
+              },
+            }),
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          window.dispatchEvent(new CustomEvent("lex-doc-pwa-register-failed"))
+        }
+      }
     }
 
-    if (document.readyState === "complete") {
-      register()
-      return
+    void registerServiceWorker()
+
+    const handleControllerChange = () => {
+      window.dispatchEvent(new CustomEvent("lex-doc-pwa-controlled"))
     }
 
-    window.addEventListener("load", register, { once: true })
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      handleControllerChange,
+    )
 
-    return () => window.removeEventListener("load", register)
+    return () => {
+      cancelled = true
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange,
+      )
+    }
   }, [])
 
   return null

@@ -11,7 +11,8 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
-const DISMISS_KEY = "lex-doc-pwa-install-dismissed"
+const DISMISS_KEY = "lex-doc-pwa-install-dismissed-v2"
+const LAST_HELP_KEY = "lex-doc-pwa-install-help-shown-at"
 
 function isStandalone() {
   const navigatorWithStandalone = navigator as Navigator & {
@@ -42,6 +43,7 @@ export function PwaInstallPrompt() {
   const [visible, setVisible] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const [isIos, setIsIos] = useState(false)
+  const [isControlled, setIsControlled] = useState(false)
 
   useEffect(() => {
     if (
@@ -54,18 +56,25 @@ export function PwaInstallPrompt() {
     }
 
     setIsIos(isIosDevice())
+    setIsControlled(Boolean(navigator.serviceWorker?.controller))
 
     const showTimer = window.setTimeout(() => {
       setVisible(true)
-    }, 1200)
+    }, isIosDevice() ? 1200 : 3200)
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault()
       setDeferredPrompt(event as BeforeInstallPromptEvent)
+      setManualMode(false)
       setVisible(true)
     }
 
+    const handlePwaControlled = () => {
+      setIsControlled(true)
+    }
+
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    window.addEventListener("lex-doc-pwa-controlled", handlePwaControlled)
 
     return () => {
       window.clearTimeout(showTimer)
@@ -73,6 +82,7 @@ export function PwaInstallPrompt() {
         "beforeinstallprompt",
         handleBeforeInstallPrompt,
       )
+      window.removeEventListener("lex-doc-pwa-controlled", handlePwaControlled)
     }
   }, [])
 
@@ -90,8 +100,10 @@ export function PwaInstallPrompt() {
       return {
         icon: MonitorDown,
         title: "Установка в браузере",
-        text: "В Chrome, Edge или Brave нажмите значок установки в адресной строке либо пункт «Установить приложение» в меню браузера.",
-        action: "Понятно",
+        text: isControlled
+          ? "Если системная кнопка не появилась, откройте меню браузера и выберите «Установить Lex-Doc Sorter». В Chrome и Edge пункт появляется только для HTTPS-страницы."
+          : "Приложение подготовлено. Обновите страницу один раз, чтобы браузер взял сайт под service worker, затем нажмите «Установить» снова.",
+        action: isControlled ? "Понятно" : "Обновить",
       }
     }
 
@@ -101,7 +113,7 @@ export function PwaInstallPrompt() {
       text: "Откроется как отдельное приложение, быстрее запускается и остаётся под рукой при загрузке документов.",
       action: deferredPrompt ? "Установить" : "Как установить",
     }
-  }, [deferredPrompt, isIos, manualMode])
+  }, [deferredPrompt, isControlled, isIos, manualMode])
 
   if (!visible) {
     return null
@@ -117,6 +129,7 @@ export function PwaInstallPrompt() {
   const handleInstall = async () => {
     if (!deferredPrompt) {
       setManualMode(true)
+      localStorage.setItem(LAST_HELP_KEY, new Date().toISOString())
       return
     }
 
@@ -171,7 +184,13 @@ export function PwaInstallPrompt() {
             type="button"
             size="sm"
             className="gap-2"
-            onClick={manualMode ? dismiss : handleInstall}
+            onClick={
+              manualMode
+                ? isControlled || isIos
+                  ? dismiss
+                  : () => window.location.reload()
+                : handleInstall
+            }
           >
             {!manualMode && <Download className="h-4 w-4" />}
             {copy.action}

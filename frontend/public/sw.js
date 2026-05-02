@@ -1,14 +1,13 @@
-const CACHE_NAME = "lex-doc-sorter-v1"
-const STATIC_ASSETS = ["/", "/dashboard", "/jobs/new", "/manifest.webmanifest"]
+const CACHE_NAME = "lex-doc-sorter-v2"
+const APP_SHELL = ["/", "/offline.html", "/manifest.webmanifest"]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .catch(() => undefined),
+      .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting()),
   )
-  self.skipWaiting()
 })
 
 self.addEventListener("activate", (event) => {
@@ -30,7 +29,11 @@ self.addEventListener("fetch", (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  if (request.method !== "GET" || url.pathname.startsWith("/api/")) {
+  if (request.method !== "GET") {
+    return
+  }
+
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
     return
   }
 
@@ -38,33 +41,39 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          const copy = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
           return response
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/"))),
+        .catch(() =>
+          caches
+            .match(request)
+            .then((cached) => cached || caches.match("/offline.html")),
+        ),
     )
     return
   }
 
-  if (url.origin !== self.location.origin) {
-    return
-  }
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) {
-        return cached
-      }
-
-      return fetch(request).then((response) => {
-        if (response.ok && url.pathname.startsWith("/_next/static/")) {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname === "/manifest.webmanifest"
+  ) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          return cached
         }
 
-        return response
-      })
-    }),
-  )
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const copy = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+          }
+
+          return response
+        })
+      }),
+    )
+  }
 })
