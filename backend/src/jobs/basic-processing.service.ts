@@ -15,6 +15,7 @@ import { DocumentDetectionService } from './document-detection.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
 import { ImagePreprocessingService } from './image-preprocessing.service';
 import { OcrService } from './ocr.service';
+import { PdfBuilderService } from './pdf-builder.service';
 import type { ImageProcessorJob } from './processing-queue.service';
 
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
@@ -46,6 +47,7 @@ export class BasicProcessingService {
     private readonly imagePreprocessing: ImagePreprocessingService,
     private readonly ocr: OcrService,
     private readonly documentDetection: DocumentDetectionService,
+    private readonly pdfBuilder: PdfBuilderService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -218,7 +220,18 @@ export class BasicProcessingService {
 
   async streamJobArchive(userId: string, jobId: string, response: Response) {
     const job = await this.getOwnedJob(userId, jobId);
-    const files = job.files.filter((file) => Boolean(file.outputPdfPath));
+    const files = Array.from(
+      job.files
+        .filter((file) => Boolean(file.outputPdfPath))
+        .reduce((uniqueFiles, file) => {
+          if (file.outputPdfPath && !uniqueFiles.has(file.outputPdfPath)) {
+            uniqueFiles.set(file.outputPdfPath, file);
+          }
+
+          return uniqueFiles;
+        }, new Map<string, (typeof job.files)[number]>())
+        .values(),
+    );
 
     if (files.length === 0) {
       throw new BadRequestException('Сначала обработайте файлы');
@@ -309,6 +322,7 @@ export class BasicProcessingService {
     try {
       if (!hasFailedFiles) {
         await this.documentDetection.detectJobGroups(job.id);
+        await this.pdfBuilder.buildSearchableGroupPdfs(job.userId, job.id);
       }
 
       await this.prisma.sortingJob.update({

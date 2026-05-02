@@ -9,6 +9,7 @@ import { ImageProcessorProcessor } from './image-processor.processor';
 import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
 import { OcrService } from './ocr.service';
+import { PdfBuilderService } from './pdf-builder.service';
 import {
   IMAGE_PROCESSOR_QUEUE,
   ProcessingQueueService,
@@ -35,6 +36,7 @@ import {
     DocumentDetectionService,
     ImagePreprocessingService,
     OcrService,
+    PdfBuilderService,
     ProcessingQueueService,
     ImageProcessorProcessor,
   ],

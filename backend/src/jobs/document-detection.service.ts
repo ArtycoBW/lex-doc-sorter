@@ -207,7 +207,7 @@ export class DocumentDetectionService {
     if (/\bприложени[ея]\b/.test(text)) return 'appendix';
     if (/\bрешени[ея]\b/.test(text)) return 'decision';
     if (/\bопределени[ея]\b/.test(text)) return 'ruling';
-    if (/\bсч[её]т\b|\bсчет\b|\bнакладн/.test(text)) return 'invoice';
+    if (/\bсч[её]т\b|\bсчет\b|\bнакладн|\bчек\b|\bкассов/.test(text)) return 'invoice';
     if (/\bдоверенность\b/.test(text)) return 'power_of_attorney';
     if (/\bпротокол\b/.test(text)) return 'protocol';
     if (/\bуведомлени[ея]\b/.test(text)) return 'notice';
