@@ -948,6 +948,12 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
+  applyJobSmartNames: (jobId: string) =>
+    request<SortingJob>(`/jobs/${jobId}/apply-names`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
   downloadJobArchive: async (jobId: string) => {
     try {
       const res = await authorizedFetch(`/jobs/${jobId}/download`);

@@ -8,6 +8,7 @@ import { ImagePreprocessingService } from './image-preprocessing.service';
 import { ImageProcessorProcessor } from './image-processor.processor';
 import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
+import { NamingService } from './naming.service';
 import { OcrService } from './ocr.service';
 import { PdfBuilderService } from './pdf-builder.service';
 import {
@@ -35,6 +36,7 @@ import {
     BasicProcessingService,
     DocumentDetectionService,
     ImagePreprocessingService,
+    NamingService,
     OcrService,
     PdfBuilderService,
     ProcessingQueueService,

@@ -36,7 +36,31 @@ const fileStatusLabels: Record<FileStatus, string> = {
   SKIPPED: "Отменён",
 }
 
+const docTypeLabels: Record<string, string> = {
+  contract: "Договор",
+  act: "Акт",
+  appendix: "Приложение",
+  decision: "Решение",
+  ruling: "Определение",
+  invoice: "Счёт",
+  power_of_attorney: "Доверенность",
+  protocol: "Протокол",
+  notice: "Уведомление",
+  certificate: "Справка",
+  statement: "Заявление",
+  other: "Документ",
+}
+
 const activeStatuses = new Set<JobStatus>(["UPLOADING", "PROCESSING"])
+
+type DocumentGroup = {
+  id: string
+  index: number
+  files: ProcessedFile[]
+  representative: ProcessedFile
+  pageCount: number
+  sizeBytes: number
+}
 
 function formatSize(size: number) {
   if (size >= 1024 * 1024) {
@@ -92,6 +116,27 @@ function getFileBadgeClass(status: FileStatus) {
   )
 }
 
+function getDocumentGroups(files: ProcessedFile[]): DocumentGroup[] {
+  const groups = new Map<number, ProcessedFile[]>()
+
+  for (const file of files) {
+    const key = file.groupIndex ?? file.orderIndex
+    groups.set(key, [...(groups.get(key) || []), file])
+  }
+
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([index, groupFiles]) => ({
+      id: String(index),
+      index,
+      files: groupFiles,
+      representative: groupFiles[0],
+      pageCount: groupFiles.reduce((sum, file) => sum + Math.max(1, file.pageCount || 1), 0),
+      sizeBytes: groupFiles.reduce((sum, file) => sum + file.sizeBytes, 0),
+    }))
+    .filter((group): group is DocumentGroup => Boolean(group.representative))
+}
+
 export default function JobDetailsPage() {
   const params = useParams<{ id: string }>()
   const jobId = params.id
@@ -103,6 +148,7 @@ export default function JobDetailsPage() {
   const [processing, setProcessing] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [applyingNames, setApplyingNames] = useState(false)
   const [error, setError] = useState("")
 
   const loadJob = useCallback(
@@ -162,6 +208,10 @@ export default function JobDetailsPage() {
       job?.status === "UPLOADING" ||
       job?.status === "PENDING")
   const canDownload = job?.status === "COMPLETED" && job.processedFiles > 0
+  const documentGroups = useMemo(
+    () => getDocumentGroups(job?.files || []),
+    [job?.files],
+  )
 
   const startEdit = (file: ProcessedFile) => {
     setEditingFileId(file.id)
@@ -249,6 +299,25 @@ export default function JobDetailsPage() {
       setError(getErrorMessage(error, "Не удалось скачать архив"))
     } finally {
       setDownloading(false)
+    }
+  }
+
+  const applySmartNames = async () => {
+    if (!job) {
+      return
+    }
+
+    setApplyingNames(true)
+    setError("")
+
+    try {
+      setJob(await api.applyJobSmartNames(job.id))
+      setEditingFileId(null)
+      setEditingName("")
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Не удалось применить имена"))
+    } finally {
+      setApplyingNames(false)
     }
   }
 
@@ -351,6 +420,20 @@ export default function JobDetailsPage() {
               type="button"
               variant="outline"
               className="gap-2"
+              disabled={!canDownload || applyingNames}
+              onClick={() => void applySmartNames()}
+            >
+              {applyingNames ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Применить имена
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
               disabled={!canDownload || downloading}
               onClick={() => void downloadArchive()}
             >
@@ -394,14 +477,33 @@ export default function JobDetailsPage() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card/72">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="text-lg font-semibold">Файлы задания</h2>
+        <div className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Документы задания</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {documentGroups.length} PDF из {job.files.length} загруженных файлов
+            </p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full px-3 py-1">
+            Умная маска имён
+          </Badge>
         </div>
         <div className="divide-y divide-border">
-          {job.files.map((file) => (
-            <div key={file.id} className="px-5 py-4 transition-colors hover:bg-muted/28">
+          {documentGroups.map((group) => {
+            const file = group.representative
+            const docType = file.docType ? docTypeLabels[file.docType] || "Документ" : "Документ"
+            const meta = [
+              docType,
+              file.docDate,
+              file.docNumber,
+              group.pageCount > 1 ? `${group.pageCount} стр.` : "1 стр.",
+              formatSize(group.sizeBytes),
+            ].filter(Boolean)
+
+            return (
+            <div key={group.id} className="px-5 py-4 transition-colors hover:bg-muted/28">
               <div className="grid gap-3 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <FileText className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -432,8 +534,23 @@ export default function JobDetailsPage() {
                         </p>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {file.originalName} · {formatSize(file.sizeBytes)}
+                        {meta.join(" · ")}
                       </p>
+                      {file.docParties.length > 0 && (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {file.docParties.join(" · ")}
+                        </p>
+                      )}
+                      {group.files.length > 1 && (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          Собрано из файлов: {group.files.map((item) => item.originalName).join(", ")}
+                        </p>
+                      )}
+                      {file.docSummary && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {file.docSummary}
+                        </p>
+                      )}
                       {file.errorMessage && (
                         <p className="mt-1 text-xs text-destructive">
                           {file.errorMessage}
@@ -474,7 +591,8 @@ export default function JobDetailsPage() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
     </div>

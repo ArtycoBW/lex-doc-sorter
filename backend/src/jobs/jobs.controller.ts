@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BasicProcessingService } from './basic-processing.service';
 import { UpdateFileNameDto } from './dto/update-file-name.dto';
 import { JobsService } from './jobs.service';
+import { NamingService } from './naming.service';
 import { ProcessingQueueService } from './processing-queue.service';
 
 const MAX_FILES = 500;
@@ -46,6 +47,7 @@ export class JobsController {
     private readonly jobsService: JobsService,
     private readonly basicProcessingService: BasicProcessingService,
     private readonly processingQueueService: ProcessingQueueService,
+    private readonly namingService: NamingService,
   ) {}
 
   @Post()
@@ -92,6 +94,11 @@ export class JobsController {
   @Post(':id/cancel')
   cancelProcessing(@Req() req: any, @Param('id') jobId: string) {
     return this.processingQueueService.cancelJob(req.user.sub, jobId);
+  }
+
+  @Post(':id/apply-names')
+  applySmartNames(@Req() req: any, @Param('id') jobId: string) {
+    return this.namingService.applySmartNamesForUser(req.user.sub, jobId);
   }
 
   @Get()

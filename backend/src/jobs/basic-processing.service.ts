@@ -14,6 +14,7 @@ import { StorageService } from '../storage/storage.service';
 import { DocumentDetectionService } from './document-detection.service';
 import { decodePossiblyMojibakeFileName } from './file-name.util';
 import { ImagePreprocessingService } from './image-preprocessing.service';
+import { NamingService } from './naming.service';
 import { OcrService } from './ocr.service';
 import { PdfBuilderService } from './pdf-builder.service';
 import type { ImageProcessorJob } from './processing-queue.service';
@@ -48,6 +49,7 @@ export class BasicProcessingService {
     private readonly ocr: OcrService,
     private readonly documentDetection: DocumentDetectionService,
     private readonly pdfBuilder: PdfBuilderService,
+    private readonly naming: NamingService,
   ) {}
 
   async getJob(userId: string, jobId: string) {
@@ -323,6 +325,7 @@ export class BasicProcessingService {
       if (!hasFailedFiles) {
         await this.documentDetection.detectJobGroups(job.id);
         await this.pdfBuilder.buildSearchableGroupPdfs(job.userId, job.id);
+        await this.naming.applySmartNames(job.id);
       }
 
       await this.prisma.sortingJob.update({
