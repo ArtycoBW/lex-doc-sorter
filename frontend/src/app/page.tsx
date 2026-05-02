@@ -33,19 +33,19 @@ const steps = [
     number: "01",
     icon: Upload,
     title: "Загрузите файлы",
-    text: "Фото, сканы и PDF собираются в одно задание. Drag & drop или выбор папки — как вам удобно.",
+    text: "Фото, сканы и PDF собираются в одно задание. Drag and drop или выбор папки, как вам удобнее.",
   },
   {
     number: "02",
     icon: FileSearch,
     title: "Проверьте структуру",
-    text: "Переименуйте файлы, расставьте порядковые номера, проверьте состав пакета документов.",
+    text: "Сервис переименует файлы, расставит порядок и подготовит пакет документов к выгрузке.",
   },
   {
     number: "03",
     icon: FileArchive,
     title: "Скачайте пакет",
-    text: "На выходе — PDF, реестр документов и ZIP-архив, готовый к подаче в суд или архивированию.",
+    text: "На выходе PDF, реестр документов и ZIP-архив, готовый к подаче в суд или архивированию.",
   },
 ]
 
@@ -53,22 +53,22 @@ const features = [
   {
     icon: FileStack,
     title: "Пакетная загрузка",
-    text: "Загружайте сотни документов одновременно с поддержкой drag & drop и множества форматов.",
+    text: "Загружайте сотни документов одновременно с поддержкой drag and drop и множества форматов.",
   },
   {
     icon: Shield,
     title: "Безопасное хранение",
-    text: "Документы хранятся зашифрованными в облаке. Доступ только у владельца аккаунта.",
+    text: "Документы хранятся в защищённом хранилище. Доступ есть только у владельца аккаунта.",
   },
   {
     icon: Zap,
     title: "Быстрая обработка",
-    text: "Автоматическая нумерация, переименование и конвертация файлов — за несколько секунд.",
+    text: "Автоматическая нумерация, переименование и конвертация файлов без ручной рутины.",
   },
   {
     icon: Lock,
     title: "Личный кабинет",
-    text: "Вход по email и коду, история заданий и управление всеми делами в одном месте.",
+    text: "Вход по email, история заданий и управление пакетами документов в одном месте.",
   },
   {
     icon: BarChart3,
@@ -88,11 +88,10 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {/* Header */}
       <header className="fixed top-0 z-50 w-full border-b border-border/30 bg-background/75 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-300 group-hover:shadow-glow-sm">
+          <Link href="/" className="group flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-300">
               <Scale className="h-4 w-4" />
             </span>
             <span className="text-sm font-semibold tracking-tight">Lex-Doc Sorter</span>
@@ -123,7 +122,6 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero */}
       <section className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden pt-16">
         <div className="absolute inset-0">
           <FallingPattern
@@ -133,8 +131,6 @@ export default function HomePage() {
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/95" />
-
-        {/* Ambient glow */}
         <div
           className="pointer-events-none absolute inset-0 opacity-30"
           style={{
@@ -144,23 +140,19 @@ export default function HomePage() {
         />
 
         <div className="relative z-10 px-5 text-center sm:px-8">
-          <div className="fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary shadow-[inset_0_1px_0_hsl(var(--primary)/0.2)]">
+          <div className="fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary">
             <FileStack className="h-3.5 w-3.5" />
             Документооборот для юристов
           </div>
 
           <h1 className="fade-in-up mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-6xl lg:text-7xl">
-            Наведите порядок{" "}
-            <br className="hidden sm:block" />
-            в документах{" "}
-            <span className="text-gradient">
-              перед подачей
-            </span>
+            Наведите порядок <br className="hidden sm:block" />
+            в документах <span className="text-gradient">перед подачей</span>
           </h1>
 
           <p className="fade-in-up-delay-1 mx-auto mt-6 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Загрузите фото, сканы и PDF — сервис поможет переименовать, упорядочить
-            и подготовить документы к выгрузке в суд.
+            Загружайте фото, сканы и PDF. Сервис поможет переименовать,
+            упорядочить и подготовить документы к выгрузке в суд.
           </p>
 
           <div className="fade-in-up-delay-2 mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -182,143 +174,99 @@ export default function HomePage() {
             </Button>
           </div>
 
-          <div className="fade-in-up-delay-3 mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            {["Бесплатный старт", "Без установки", "Безопасно"].map((item) => (
-              <div key={item} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                {item}
-              </div>
-            ))}
+          <div className="fade-in-up-delay-3 mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.map((stat) => {
+              const Icon = stat.icon
+
+              return (
+                <div key={stat.value} className="rounded-xl border border-border/60 bg-card/40 px-4 py-3 backdrop-blur-sm">
+                  <Icon className="mx-auto h-4 w-4 text-primary" />
+                  <div className="mt-2 text-sm font-semibold">{stat.value}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{stat.label}</div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="border-y border-border/30 bg-card/15">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px bg-border/30 md:grid-cols-4">
-          {stats.map(({ value, label, icon: Icon }) => (
-            <div
-              key={label}
-              className="flex flex-col items-center justify-center gap-3 bg-background p-8 text-center transition-colors duration-300 hover:bg-card/50"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="block font-mono text-2xl font-bold text-primary sm:text-3xl">{value}</span>
-                <span className="mt-1 block text-xs text-muted-foreground sm:text-sm">{label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8">
-        <div className="mb-14 text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Как это работает</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Три шага до готового пакета
-          </h2>
-        </div>
-
-        <div className="relative grid gap-8 md:grid-cols-3 md:gap-6">
-          {/* Connecting line */}
-          <div className="absolute left-[16.67%] right-[16.67%] top-8 hidden h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent md:block" />
-
-          {steps.map((step) => (
-            <article key={step.title} className="relative flex flex-col items-center text-center">
-              <div className="relative mb-5">
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-card shadow-lg transition-all duration-300 hover:border-primary/40 hover:shadow-glow-sm">
-                  <step.icon className="h-7 w-7 text-primary" />
-                </div>
-                <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-md shadow-blue-500/30">
-                  {step.number.slice(-1)}
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold">{step.title}</h3>
-              <p className="mt-2.5 text-sm leading-6 text-muted-foreground">{step.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-border/30 bg-muted/8">
-        <div className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8">
-          <div className="mb-14 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary">Возможности</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              Всё для подготовки документов
+      <section className="relative border-y border-border/50 bg-card/30 px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-sm font-medium text-primary">Как работает сервис</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              От хаоса в папке к готовому пакету
             </h2>
           </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {steps.map((step) => {
+              const Icon = step.icon
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <article
-                key={feature.title}
-                className="group rounded-xl border border-border/60 bg-card p-6 hover-glow"
-              >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
-                  <feature.icon className="h-5 w-5 text-primary" />
+              return (
+                <div key={step.number} className="rounded-2xl border border-border/70 bg-background/50 p-5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-sm text-muted-foreground">{step.number}</span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <h3 className="mt-6 text-lg font-semibold">{step.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{step.text}</p>
                 </div>
-                <h3 className="font-semibold">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.text}</p>
-              </article>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8">
-        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-10 text-center sm:p-16">
-          {/* Multi-point gradient mesh */}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage: [
-                "radial-gradient(ellipse 60% 60% at 20% 20%, hsl(var(--primary) / 0.12), transparent 60%)",
-                "radial-gradient(ellipse 50% 50% at 80% 80%, hsl(245 80% 70% / 0.08), transparent 60%)",
-                "radial-gradient(ellipse 40% 40% at 50% 0%, hsl(var(--primary) / 0.07), transparent 70%)",
-              ].join(", "),
-            }}
-          />
-          <div className="relative">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/15">
-              <Scale className="h-7 w-7 text-primary" />
+      <section className="px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-sm font-medium text-primary">Возможности</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Всё, что нужно для первого рабочего контура
+            </h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => {
+              const Icon = feature.icon
+
+              return (
+                <div key={feature.title} className="group rounded-2xl border border-border/70 bg-card/60 p-5 transition-colors hover:bg-muted/35">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-background text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <h3 className="mt-5 text-base font-semibold">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.text}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border/50 px-5 py-16 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-3xl border border-border/70 bg-card/60 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-primary">
+              <CheckCircle2 className="h-4 w-4" />
+              Готово к пилотному использованию
             </div>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Готовы начать?</h2>
-            <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-              Зарегистрируйтесь бесплатно и начните упорядочивать документы прямо сейчас.
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+              Начните с тестового пакета документов
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Загрузите реальные фото или PDF и проверьте сценарий подготовки пакета к подаче.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button asChild variant="gradient" size="lg" className="gap-2">
-                <Link href={isAuthorized ? "/dashboard" : "/auth/register"}>
-                  {isAuthorized ? "Перейти в дашборд" : "Создать аккаунт"}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-border/60 bg-card/50">
-                <Link href={isAuthorized ? "/jobs/new" : "/auth/login"}>
-                  {isAuthorized ? "Новое задание" : "Войти в систему"}
-                </Link>
-              </Button>
-            </div>
           </div>
+          <Button asChild size="lg" className="gap-2">
+            <Link href={isAuthorized ? "/jobs/new" : "/auth/register"}>
+              Перейти к загрузке
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/30 bg-card/8">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:px-8">
-          <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            <Scale className="h-4 w-4" />
-            Lex-Doc Sorter
-          </Link>
-          <p className="text-xs text-muted-foreground">© 2025 Lex-Doc Sorter. Все права защищены.</p>
-        </div>
-      </footer>
     </main>
   )
 }

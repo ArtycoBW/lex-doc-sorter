@@ -122,7 +122,7 @@
   }
 
   .card-hover:hover {
-    @apply -translate-y-1 shadow-lg;
+    @apply -translate-y-1;
   }
 
   .text-gradient {
@@ -134,7 +134,6 @@
     @apply transition-all duration-300;
   }
   .hover-glow:hover {
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 8px 32px -4px hsl(var(--primary) / 0.12);
     border-color: hsl(var(--primary) / 0.4) !important;
     transform: translateY(-2px);
   }

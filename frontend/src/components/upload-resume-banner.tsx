@@ -74,7 +74,7 @@ export function UploadResumeBanner() {
 
   return (
     <div className="install-prompt-reveal fixed bottom-4 left-4 right-4 z-40 mx-auto max-w-md sm:left-auto sm:right-5">
-      <div className="rounded-xl border border-border bg-card/95 p-3 shadow-[0_24px_70px_-42px_hsl(var(--foreground)/0.62)] backdrop-blur-xl">
+      <div className="rounded-xl border border-border bg-card/95 p-3 backdrop-blur-xl">
         <div className="grid grid-cols-[auto_1fr_auto] gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background text-primary">
             <RotateCcw className="h-5 w-5" />

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole } from '@prisma/client';
+import { BillingTransactionType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -56,8 +56,13 @@ export class UsersService {
       totalJobs,
       totalFiles,
       completedFiles,
+      totalTokenBalance,
+      totalFeedback,
+      openFeedback,
+      totalStorageBytes,
       recentJobs,
       jobStatusCounts,
+      recentTokenTransactions,
     ] = await this.prisma.$transaction([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isVerified: true } }),
@@ -67,6 +72,12 @@ export class UsersService {
       this.prisma.sortingJob.count(),
       this.prisma.processedFile.count(),
       this.prisma.processedFile.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.user.aggregate({ _sum: { tokenBalance: true } }),
+      this.prisma.feedbackSubmission.count(),
+      this.prisma.feedbackSubmission.count({
+        where: { status: { not: 'RESOLVED' } },
+      }),
+      this.prisma.processedFile.aggregate({ _sum: { sizeBytes: true } }),
       this.prisma.sortingJob.findMany({
         take: 8,
         orderBy: { updatedAt: 'desc' },
@@ -78,6 +89,13 @@ export class UsersService {
         by: ['status'],
         orderBy: { status: 'asc' },
         _count: { id: true },
+      }),
+      this.prisma.billingTransaction.findMany({
+        take: 8,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { email: true, name: true } },
+        },
       }),
     ]);
 
@@ -92,6 +110,10 @@ export class UsersService {
         jobs: totalJobs,
         files: totalFiles,
         completedFiles,
+        tokenBalance: totalTokenBalance._sum.tokenBalance ?? 0,
+        feedback: totalFeedback,
+        openFeedback,
+        storageBytes: totalStorageBytes._sum.sizeBytes ?? 0,
       },
       jobStatuses: jobStatusCounts.reduce<Record<string, number>>(
         (acc, item) => {
@@ -109,6 +131,15 @@ export class UsersService {
         createdAt: job.createdAt.toISOString(),
         updatedAt: job.updatedAt.toISOString(),
         user: job.user,
+      })),
+      recentTokenTransactions: recentTokenTransactions.map((item) => ({
+        id: item.id,
+        type: item.type,
+        tokenDelta: item.tokenDelta,
+        balanceAfter: item.balanceAfter,
+        description: item.description,
+        createdAt: item.createdAt.toISOString(),
+        user: item.user,
       })),
     };
   }
@@ -145,10 +176,24 @@ export class UsersService {
       throw new BadRequestException('Укажите корректное количество токенов');
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: { tokenBalance: { increment: amount } },
-      select: userSelect,
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { tokenBalance: { increment: amount } },
+        select: userSelect,
+      });
+
+      await tx.billingTransaction.create({
+        data: {
+          userId,
+          type: BillingTransactionType.MANUAL_ADJUSTMENT,
+          tokenDelta: amount,
+          description: 'Ручное начисление администратором',
+          balanceAfter: user.tokenBalance,
+        },
+      });
+
+      return user;
     });
 
     return this.serializeUser(updatedUser);
@@ -205,18 +250,32 @@ export class UsersService {
   }
 
   private serializeUser(user: SelectedUser) {
+    const isUnlimited = user.role === UserRole.ADMIN || user.role === UserRole.PRO;
+    const dailyLimit = user.role === UserRole.DEMO ? 50_000 : null;
+    const trialEndsAt = new Date(user.createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+
     return {
       ...user,
       access: {
-        mode: user.role === UserRole.ADMIN || user.role === UserRole.PRO ? 'UNLIMITED' : 'TRIAL',
+        mode: isUnlimited ? 'UNLIMITED' : 'TRIAL',
         trialActive: user.role === UserRole.DEMO,
-        trialEndsAt: null,
-        dailyLimit: null,
+        trialEndsAt: user.role === UserRole.DEMO ? trialEndsAt.toISOString() : null,
+        dailyLimit,
         tokensUsedToday: 0,
-        tokensRemainingToday: null,
+        tokensRemainingToday: dailyLimit,
         sectionScope: 'ALL',
         extraTokenBalance: user.tokenBalance,
-        currentTariff: null,
+        currentTariff: isUnlimited
+          ? {
+              subscriptionId: 'mock-unlimited',
+              code: user.role,
+              name: user.role === UserRole.ADMIN ? 'Администратор' : 'Pro',
+              dailyTokenLimit: null,
+              sectionScope: 'ALL',
+              startsAt: user.createdAt.toISOString(),
+              endsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            }
+          : null,
       },
     };
   }

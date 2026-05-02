@@ -101,7 +101,7 @@ export function RevealImageList({
               left: cursor.x,
               top: cursor.y,
             }}
-            className="pointer-events-none absolute z-20 hidden aspect-[4/5] w-60 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-border shadow-2xl md:block"
+            className="pointer-events-none absolute z-20 hidden aspect-[4/5] w-60 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-border md:block"
           >
             <div className="absolute inset-0 bg-background" />
             <Image

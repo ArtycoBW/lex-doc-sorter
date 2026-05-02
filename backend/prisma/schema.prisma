@@ -29,20 +29,44 @@ enum FileStatus {
   SKIPPED
 }
 
+enum FeedbackCategory {
+  BUG
+  IDEA
+  OTHER
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  RESOLVED
+}
+
+enum BillingTransactionType {
+  TRIAL_USAGE
+  ALLOWANCE_USAGE
+  PACKAGE_USAGE
+  PAYMENT_TOPUP
+  MANUAL_ADJUSTMENT
+  REFUND
+  SUBSCRIPTION_ACTIVATION
+}
+
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String?
-  name         String?
-  company      String?
-  role         UserRole     @default(DEMO)
-  isVerified   Boolean      @default(false)
-  isBanned     Boolean      @default(false)
-  tokenBalance Int          @default(0)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  sessions     Session[]
-  sortingJobs  SortingJob[]
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String?
+  name                String?
+  company             String?
+  role                UserRole             @default(DEMO)
+  isVerified          Boolean              @default(false)
+  isBanned            Boolean              @default(false)
+  tokenBalance        Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  sessions            Session[]
+  sortingJobs         SortingJob[]
+  feedbackSubmissions FeedbackSubmission[]
+  billingTransactions BillingTransaction[]
 
   @@map("users")
 }
@@ -122,4 +146,47 @@ model Session {
   @@index([userId])
   @@index([token])
   @@map("sessions")
+}
+
+model FeedbackSubmission {
+  id                String           @id @default(cuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionSlug       String
+  conversationId    String
+  conversationTitle String
+  messageId         String?
+  messagePreview    String?          @db.Text
+  category          FeedbackCategory
+  content           String           @db.Text
+  status            FeedbackStatus   @default(NEW)
+  adminNote         String?          @db.Text
+  source            String           @default("form")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("feedback_submissions")
+}
+
+model BillingTransaction {
+  id           String                 @id @default(cuid())
+  userId       String
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         BillingTransactionType
+  tokenDelta   Int                    @default(0)
+  usageTokens  Int                    @default(0)
+  amount       Int?
+  currency     String?
+  description  String?
+  balanceAfter Int                    @default(0)
+  createdAt    DateTime               @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("billing_transactions")
 }

@@ -26,7 +26,7 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-500",
                   isCompleted && "bg-blue-500 text-white scale-90",
-                  isCurrent && "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-110",
+                  isCurrent && "bg-primary text-primary-foreground scale-110",
                   !isCompleted && !isCurrent && "bg-muted text-muted-foreground"
                 )}
               >

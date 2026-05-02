@@ -52,8 +52,8 @@ type ConversationPayload = {
   section: { slug: string; name: string };
 };
 
-type FeedbackCategory = 'BUG' | 'IDEA' | 'OTHER';
-type FeedbackStatus = 'NEW' | 'REVIEWED' | 'RESOLVED';
+export type FeedbackCategory = 'BUG' | 'IDEA' | 'OTHER';
+export type FeedbackStatus = 'NEW' | 'REVIEWED' | 'RESOLVED';
 
 type FeedbackItem = {
   id: string;
@@ -189,6 +189,10 @@ export type AdminOverview = {
     jobs: number;
     files: number;
     completedFiles: number;
+    tokenBalance: number;
+    feedback: number;
+    openFeedback: number;
+    storageBytes: number;
   };
   jobStatuses: Record<string, number>;
   recentJobs: Array<{
@@ -198,6 +202,18 @@ export type AdminOverview = {
     processedFiles: number;
     createdAt: string;
     updatedAt: string;
+    user: {
+      email: string;
+      name: string | null;
+    };
+  }>;
+  recentTokenTransactions: Array<{
+    id: string;
+    type: BillingTransactionType;
+    tokenDelta: number;
+    balanceAfter: number;
+    description: string | null;
+    createdAt: string;
     user: {
       email: string;
       name: string | null;

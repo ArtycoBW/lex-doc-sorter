@@ -153,7 +153,7 @@ export default function LoginPage() {
           currentStep={step === "credentials" ? 0 : 1}
         />
 
-        <div className="rounded-2xl border border-border bg-card/80 p-5 shadow-2xl backdrop-blur-xl fade-in-up sm:p-8">
+        <div className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-xl fade-in-up sm:p-8">
           <div className="mb-6 text-center">
             {step === "credentials" && (
               <div className="fade-in">

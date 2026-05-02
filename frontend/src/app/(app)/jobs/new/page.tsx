@@ -400,7 +400,7 @@ export default function NewJobPage() {
       </section>
 
       {error && (
-        <div className="rounded-lg border border-border bg-card/80 px-4 py-3 text-sm text-foreground shadow-[0_18px_54px_-42px_hsl(var(--foreground)/0.48)]">
+        <div className="rounded-lg border border-border bg-card/80 px-4 py-3 text-sm text-foreground">
           {error}
         </div>
       )}
@@ -433,7 +433,7 @@ export default function NewJobPage() {
 
         <div className="grid min-h-72 gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="flex flex-col justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border bg-background text-primary shadow-[inset_0_1px_0_hsl(var(--foreground)/0.05)]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border bg-background text-primary">
               <UploadCloud className="h-6 w-6" />
             </div>
             <h2 className="mt-5 max-w-xl text-2xl font-semibold tracking-tight">
@@ -465,7 +465,7 @@ export default function NewJobPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-background/58 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+          <div className="rounded-xl border border-border bg-background/58 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Статус пакета</p>

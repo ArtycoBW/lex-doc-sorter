@@ -15,7 +15,7 @@ export function Toaster() {
       toastOptions={{
         duration: 5000,
         classNames: {
-          toast: "border border-border shadow-lg",
+          toast: "border border-border",
           title: "text-sm font-medium",
           description: "text-sm text-muted-foreground",
         },
